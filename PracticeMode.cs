@@ -64,12 +64,27 @@ namespace MatchZy
                 Server.ExecuteCommand("""mp_t_default_grenades "weapon_molotov weapon_hegrenade weapon_smokegrenade weapon_flashbang weapon_decoy"; mp_t_default_primary "weapon_ak47"; mp_warmup_online_enabled "true"; mp_warmup_pausetimer "1"; mp_warmup_start; bot_quota_mode fill; mp_solid_teammates 2; mp_autoteambalance false; mp_teammates_are_enemies true;""");
             }
             GetSpawns();
-            Server.PrintToChatAll($"{chatPrefix} Practice mode loaded!");
-            Server.PrintToChatAll($"{chatPrefix} Available commands:");
-	        Server.PrintToChatAll($"{chatPrefix} \x10.spawn, .ctspawn, .tspawn, .bot, .nobots, .exitprac");
-	        Server.PrintToChatAll($"{chatPrefix} \x10.loadnade <name>, .savenade <name>, .importnade <code> .listnades <optional filter>");
+            Server.PrintToChatAll($" {ChatColors.Gold}Practice mode spusten˝!");
+            Server.PrintToChatAll($" DostupnÈ prÌkazy:");
+            Server.PrintToChatAll($" {ChatColors.Green}.exitprac .bot .nobots .spawn .ctspawn .tspawn .clear .god");
+            Server.PrintToChatAll($" Nades lineup prÌkazy:");
+            Server.PrintToChatAll($" {ChatColors.Green}.listnades <optional filter> .loadnade <name> .savenade <n·zov popis> .deletenade <name> .importnade <code>");
+            if (pracMessageTimer == null)
+            {
+                pracMessageTimer = AddTimer(pracMessageDelay, PracMessageStart, TimerFlags.REPEAT);
+            }
         }
-
+        public void PracMessageStart()
+        {
+            if (isPractice)
+            {
+                Server.PrintToChatAll($" DostupnÈ prÌkazy:");
+                Server.PrintToChatAll($" {ChatColors.Green}.exitprac .bot .nobots .spawn .ctspawn .tspawn .clear .god");
+                Server.PrintToChatAll($" Nades lineup prÌkazy:");
+                Server.PrintToChatAll($" {ChatColors.Green}.listnades <optional filter> .loadnade <name> .savenade <n·zov popis> .deletenade <name> .importnade <code>");
+                PrintWrappedLine(HudDestination.Center, "Pre ukonËenie Practice mÛdu napÌö .exitprac");
+            }
+        }
         public void GetSpawns()
         {
             // Resetting spawn data to avoid any glitches
@@ -170,6 +185,7 @@ namespace MatchZy
                 QAngle playerAngle = player.PlayerPawn.Value.EyeAngles;
                 Vector playerPos = player.Pawn.Value.CBodyComponent!.SceneNode.AbsOrigin;
                 string currentMapName = Server.MapName;
+                string playerName = player.PlayerName;
                 string nadeType = GetNadeType(player.PlayerPawn.Value.WeaponServices.ActiveWeapon.Value.DesignerName);
 
                 // Define the file path
@@ -211,7 +227,8 @@ namespace MatchZy
                         { "LineupAng", $"{playerAngle.X} {playerAngle.Y} {playerAngle.Z}" },
                         { "Desc", lineupDesc },
                         { "Map", currentMapName },
-                        { "Type", nadeType }
+                        { "Type", nadeType },
+                        { "Player", playerName }
                     };
 
                     // Serialize the updated dictionary back to JSON
@@ -390,7 +407,7 @@ namespace MatchZy
                 var savedNadesDict = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, Dictionary<string, string>>>>(existingJson)
                                     ?? new Dictionary<string, Dictionary<string, Dictionary<string, string>>>();
 
-                ReplyToUserCommand(player, $"\x0D-----All Saved Lineups for \x06{Server.MapName}\x0D-----");
+                ReplyToUserCommand(player, $"\x0D-----Vöetky uloûenÈ gran·ty pre mapu \x06{Server.MapName}\x0D-----");
 
                 // List lineups for the specified player
                 ListLineups(player, "default", Server.MapName, savedNadesDict, nadeFilter);
@@ -562,14 +579,9 @@ namespace MatchZy
         [ConsoleCommand("css_prac", "Starts practice mode")]
         public void OnPracCommand(CCSPlayerController? player, CommandInfo? command)
         {
-            if (!IsPlayerAdmin(player, "css_prac", "@css/map", "@custom/prac")) {
-                SendPlayerNotAdminMessage(player);
-                return;
-            }
-
             if (matchStarted)
             {
-                ReplyToUserCommand(player, "Practice Mode cannot be started when a match has been started!");
+                ReplyToUserCommand(player, "Practice Mode nemÙûe byù spusten˝ poËas aktÌvneho z·pasu!");
                 return;
             }
 	    

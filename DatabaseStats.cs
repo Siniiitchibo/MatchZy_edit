@@ -249,7 +249,6 @@ namespace MatchZy
                 Log($"[SetMatchEndData - FATAL] Error updating data of matchId: {matchId} [ERROR]: {ex.Message}");
             }
         }
-
         public void UpdateMatchStats(long matchId, int t1score, int t2score)
         {
             try
@@ -266,7 +265,6 @@ namespace MatchZy
                 Log($"[UpdatePlayerStats - FATAL] Error updating data of matchId: {matchId} [ERROR]: {ex.Message}");
             }
         }
-
         public void UpdatePlayerStats(long matchId, string ctTeamName, string tTeamName, Dictionary<int, CCSPlayerController> playerData)
         {
             try

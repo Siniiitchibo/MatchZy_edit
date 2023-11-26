@@ -5,6 +5,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Timers;
 using System.Text.Json;
+using CounterStrikeSharp.API.Modules.Entities;
 
 
 namespace MatchZy
@@ -13,9 +14,8 @@ namespace MatchZy
     {
         public bool isStopCommandAvailable = true;
         public bool pauseAfterRoundRestore = true;
-        public string lastBackupFileName = "";
-
         public bool isRoundRestoring = false;
+        public string lastBackupFileName = "";
 
         public Dictionary<string, bool> stopData = new Dictionary<string, bool> {
             { "ct", false },
@@ -59,14 +59,47 @@ namespace MatchZy
                     }
 
                 } else {
-                    Server.PrintToChatAll($"{chatPrefix} {ChatColors.Green}{stopTeamName}{ChatColors.Default} wants to restore the game to the beginning of the current round. {ChatColors.Green}{remainingStopTeam}{ChatColors.Default}, please write !stop to confirm.");
+                    if (unreadyPlayerMessageTimer == null)
+                    {
+                        unreadyPlayerMessageTimer = AddTimer(chatTimerDelay, StopMessageRepeat, TimerFlags.REPEAT);
+                    }
+                    Server.PrintToChatAll($" {ChatColors.Green}{stopTeamName}{ChatColors.Default} chc˙ obnoviù z·pas na zaËiatok aktu·lneho kola. {ChatColors.Green}{remainingStopTeam}{ChatColors.Default}Pre potvrdenie napÌö {ChatColors.Green}.stop");
+                }
+            }
+        }
+
+        public void StopMessageRepeat()
+        {
+            if (isStopCommandAvailable && isMatchLive)
+            {
+                var playerEntities = Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller");
+                foreach (var player in playerEntities)
+                {
+                    string stopTeamName = "";
+                    string remainingStopTeam = "";
+                    if (player.TeamNum == 2)
+                    {
+                        stopTeamName = reverseTeamSides["TERRORIST"].teamName;
+                        remainingStopTeam = reverseTeamSides["CT"].teamName;
+                    }
+                    else if (player.TeamNum == 3)
+                    {
+                        stopTeamName = reverseTeamSides["CT"].teamName;
+                        remainingStopTeam = reverseTeamSides["TERRORIST"].teamName;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                    Server.PrintToChatAll($" {ChatColors.Green}{stopTeamName}{ChatColors.Default} chc˙ obnoviù z·pas na zaËiatok aktu·lneho kola. {ChatColors.Green}{remainingStopTeam}{ChatColors.Default}Pre potvrdenie napÌö {ChatColors.Green}.stop");
                 }
             }
         }
 
         [ConsoleCommand("css_restore", "Restores the specified round")]
         public void OnRestoreCommand(CCSPlayerController? player, CommandInfo command) {
-            if (IsPlayerAdmin(player, "css_restore", "@css/config")) {
+            if (IsPlayerAdmin(player, "css_restore", "@css/config"))
+            {
                 if (command.ArgCount >= 2) {
                     string commandArg = command.ArgByIndex(1);
                     HandleRestoreCommand(player, commandArg);
@@ -80,7 +113,8 @@ namespace MatchZy
         }
 
         private void HandleRestoreCommand(CCSPlayerController? player, string commandArg) {
-            if (!IsPlayerAdmin(player, "css_restore", "@css/config")) {
+            if (!IsPlayerAdmin(player, "css_restore", "@css/config"))
+            {
                 SendPlayerNotAdminMessage(player);
                 return;
             }
@@ -102,6 +136,11 @@ namespace MatchZy
         }
 
         private void RestoreRoundBackup(CCSPlayerController? player, string fileName, string round="") {
+            if (unreadyPlayerMessageTimer != null)
+            {
+                unreadyPlayerMessageTimer.Kill();
+                unreadyPlayerMessageTimer = null;
+            }
             if (!File.Exists(Path.Join(Server.GameDirectory + "/csgo/", fileName))) {
                 ReplyToUserCommand(player, $"Backup file {fileName} does not exist, please make sure you are restoring a valid backup.");
                 return;
@@ -136,7 +175,7 @@ namespace MatchZy
                     }
 
                     isRoundRestoring = true;
-                    
+
                     foreach (var kvp in backupData) {
 
                         if (kvp.Key == "team1_side") {

@@ -88,8 +88,8 @@ namespace MatchZy
 						int targetHP = targetController.PlayerPawn.Value.Health < 0 ? 0 : targetController.PlayerPawn.Value.Health;
 						string targetName = targetController.PlayerName;
 
-						attackerController.PrintToChat($"{chatPrefix} {ChatColors.Green}To: [{damageGiven} / {hitsGiven} hits] From: [{damageTaken} / {hitsTaken} hits] - {targetName} - ({targetHP} hp){ChatColors.Default}");
-						targetController.PrintToChat($"{chatPrefix} {ChatColors.Green}To: [{damageTaken} / {hitsTaken} hits] From: [{damageGiven} / {hitsGiven} hits] - {attackerName} - ({attackerHP} hp){ChatColors.Default}");
+                        attackerController.PrintToChat($"===> {ChatColors.Lime}To: [{damageGiven} / {hitsGiven} hits] From: [{damageTaken} / {hitsTaken} hits] - {ChatColors.Gold}{targetName} - ({targetHP} HP){ChatColors.Default}");
+						targetController.PrintToChat($"===> {ChatColors.Lime}To: [{damageTaken} / {hitsTaken} hits] From: [{damageGiven} / {hitsGiven} hits] - {ChatColors.Gold}{attackerName} - ({attackerHP} HP){ChatColors.Default}");
 					}
 
 					// Mark this pair as processed to avoid duplicates.
