@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.4.3-alpha (siniii edit-0.2.8)";
+        public override string ModuleVersion => "0.4.3-alpha (siniii edit-0.2.9)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 

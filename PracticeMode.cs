@@ -68,7 +68,7 @@ namespace MatchZy
             Server.PrintToChatAll($" Dostupné príkazy:");
             Server.PrintToChatAll($" {ChatColors.Green}.exitprac .bot .nobots .spawn .ctspawn .tspawn .clear .god");
             Server.PrintToChatAll($" Nades lineup príkazy:");
-            Server.PrintToChatAll($" {ChatColors.Green}.listnades <optional filter> .loadnade <name> .savenade <názov popis> .deletenade <name> .importnade <code>");
+            Server.PrintToChatAll($" {ChatColors.Green}.listnades .loadnade <name> .savenade <názov popis> .deletenade <name> .importnade <code>");
             if (pracMessageTimer == null)
             {
                 pracMessageTimer = AddTimer(pracMessageDelay, PracMessageStart, TimerFlags.REPEAT);
@@ -78,10 +78,7 @@ namespace MatchZy
         {
             if (isPractice)
             {
-                Server.PrintToChatAll($" Dostupné príkazy:");
-                Server.PrintToChatAll($" {ChatColors.Green}.exitprac .bot .nobots .spawn .ctspawn .tspawn .clear .god");
-                Server.PrintToChatAll($" Nades lineup príkazy:");
-                Server.PrintToChatAll($" {ChatColors.Green}.listnades <optional filter> .loadnade <name> .savenade <názov popis> .deletenade <name> .importnade <code>");
+                Server.PrintToChatAll($" Pre zoznam príkazov napíš {ChatColors.Green}.help");
                 PrintWrappedLine(HudDestination.Center, "Pre ukonèenie Practice módu napíš .exitprac");
             }
         }
@@ -282,7 +279,9 @@ namespace MatchZy
                     {
                         // Remove the specified lineup
                         savedNadesDict[playerSteamID].Remove(saveNadeName);
-                        savedNadesDict.Remove(playerSteamID);
+
+                        // Remove all lineup for specified SteamID
+                        //savedNadesDict.Remove(playerSteamID);
 
                         // Serialize the updated dictionary back to JSON
                         string updatedJson = JsonSerializer.Serialize(savedNadesDict, new JsonSerializerOptions { WriteIndented = true });
@@ -396,6 +395,7 @@ namespace MatchZy
             // Define the file path
             string savednadesfileName = "MatchZy/savednades.json";
             string savednadesPath = Path.Join(Server.GameDirectory + "/csgo/cfg", savednadesfileName);
+            string playerName = player.PlayerName;
 
             try
             {
@@ -412,6 +412,8 @@ namespace MatchZy
 
                 // List lineups for the specified player
                 ListLineups(player, "default", Server.MapName, savedNadesDict, nadeFilter);
+
+                ReplyToUserCommand(player, $"\x0D-----Všetky uložené granáty hráèa \x06{playerName}\x0D-----");
 
                 // List lineups for the current player
                 ListLineups(player, player.SteamID.ToString(), Server.MapName, savedNadesDict, nadeFilter);

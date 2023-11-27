@@ -794,7 +794,7 @@ namespace MatchZy
             if (isMatchLive)
             {
                 (int t1score, int t2score) = GetTeamsScore();
-                Server.PrintToChatAll($"{chatPrefix} {ChatColors.Green}{matchzyTeam1.teamName} [{t1score} - {t2score}] {matchzyTeam2.teamName}");
+                Server.PrintToChatAll($" {ChatColors.Green}{matchzyTeam1.teamName} [{t1score} - {t2score}] {matchzyTeam2.teamName}");
 
                 ShowDamageInfo();
 
@@ -983,24 +983,25 @@ namespace MatchZy
         {
             if (isPractice)
             {
-                ReplyToUserCommand(player, "Available commands: .spawn, .ctspawn, .tspawn, .bot, .nobots, .god, .clear, .fastforward");
-                ReplyToUserCommand(player, ".loadnade <name>, .savenade <name>, .importnade <code> .listnades <optional filter>");
+                ReplyToUserCommand(player, $" Dostupné príkazy:");
+                ReplyToUserCommand(player, $" {ChatColors.Green}.exitprac .bot .nobots .spawn .ctspawn .tspawn .clear .god");
+                ReplyToUserCommand(player, $" Nades lineup príkazy:");
+                ReplyToUserCommand(player, $" {ChatColors.Green}.listnades .loadnade <name> .savenade <názov popis> .deletenade <name> .importnade <code>");
                 return;
             }
             if (readyAvailable)
             {
-                ReplyToUserCommand(player, "Available commands: !ready, !unready");
                 return;
             }
             if (isSideSelectionPhase)
             {
-                ReplyToUserCommand(player, "Available commands: !stay, !switch");
                 return;
             }
             if (matchStarted)
             {
-                string stopCommandMessage = isStopCommandAvailable ? ", !stop" : "";
-                ReplyToUserCommand(player, $"Available commands: !pause, !unpause, !tac, !tech{stopCommandMessage}");
+                string stopCommandMessage = isStopCommandAvailable ? ".stop" : "";
+                ReplyToUserCommand(player, $" Dostupné príkazy:");
+                ReplyToUserCommand(player, $" {ChatColors.Green}.pause .unpause {stopCommandMessage}");
                 return;
             }
         }
