@@ -5,6 +5,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Menu;
+using CounterStrikeSharp.API.Modules.Timers;
 
 namespace MatchZy
 {
@@ -13,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.4.3-alpha (siniii edit-0.2.7)";
+        public override string ModuleVersion => "0.4.3-alpha (siniii edit-0.2.8)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -82,9 +83,10 @@ namespace MatchZy
         // Configurable using matchzy_chat_messages_timer_delay <seconds>
         public int chatTimerDelay = 12;
         public int pracMessageDelay = 55;
-        public int unreadyHintMessageDelay = 4;
+        public int unreadyHintMessageDelay = 3;
         public int restoreServerDelay = 2;
         public int roundKnifeStartMessageDelay = 11;
+        public int afterReadyDelay = 3;
 
         // Game Config
         public bool isKnifeRequired = true;
@@ -605,7 +607,7 @@ namespace MatchZy
                 if (isPractice && @event.Userid.SteamID != @event.Attacker.SteamID)
                 {
                     double roundedBlindDuration = Math.Round(@event.BlindDuration, 2);
-                    @event.Attacker.PrintToChat($"{chatPrefix} Flashed {@event.Userid.PlayerName}. Blind time: {roundedBlindDuration} seconds");
+                    @event.Attacker.PrintToChat($" Flashed {@event.Userid.PlayerName}. Blind time: {roundedBlindDuration} seconds");
                 }
                 return HookResult.Continue;
             });

@@ -8,6 +8,8 @@ using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Admin;
 using System.Text.RegularExpressions;
+using CounterStrikeSharp.API.Modules.Entities;
+using System.Numerics;
 
 
 namespace MatchZy
@@ -94,14 +96,9 @@ namespace MatchZy
         }
 
         private void SendUnreadyPlayersMessage() {
-            Log($"[SendUnreadyPlayersMessage] isWarmup: {isWarmup}, matchStarted: {matchStarted}");
             if (GetRealPlayersCount() == 0)
             {
                 Server.ExecuteCommand($"sv_hibernate_when_empty 1");
-            }
-            else if (GetRealPlayersCount() >= 1)
-            {
-                Server.ExecuteCommand($"sv_hibernate_when_empty 0");
             }
             if (isWarmup && !matchStarted) {
                 List<string> unreadyPlayers = new List<string>();
@@ -119,17 +116,9 @@ namespace MatchZy
                     Server.PrintToChatAll($"Pre spustenie hry napíš do chatu {ChatColors.Green}.ready {ChatColors.Default}alebo {ChatColors.Green}.rdy");
                     Server.PrintToChatAll($"Pre spustenie Practice módu napíš {ChatColors.Green}.prac");
                     Server.PrintToChatAll($"Nutnı poèet hráèov pre spustenie hry: {ChatColors.Green}{minimumReadyRequired}");
-                    if (unreadyHintMessageTimmer == null)
-                    {
-                        unreadyHintMessageTimmer = AddTimer(unreadyHintMessageDelay, UnreadyHintMessageStart, TimerFlags.REPEAT);
-                    }
                 } else {
                     int countOfReadyPlayers = playerReadyStatus.Count(kv => kv.Value == true);
                     Server.PrintToChatAll($"Nutnı poèet hráèov pre spustenie hry: {ChatColors.Green}{minimumReadyRequired}{ChatColors.Default}, poèet pripravenıch hráèov: {ChatColors.Green}{countOfReadyPlayers}");
-                    if (unreadyHintMessageTimmer == null)
-                    {
-                        unreadyHintMessageTimmer = AddTimer(unreadyHintMessageDelay, UnreadyHintMessageStart, TimerFlags.REPEAT);
-                    }
                 }
             }
         }
@@ -146,16 +135,16 @@ namespace MatchZy
                         unreadyPlayers.Add(playerData[key].PlayerName);
                     }
                 }
+
                 if (unreadyPlayers.Count > 0)
                 {
                     string unreadyPlayerList = string.Join(", ", unreadyPlayers);
                     //PrintWrappedLine(HudDestination.Center, "Pre spustenie Practice módu napíš .prac");
-                    PrintWrappedLine(HudDestination.Center, $"NotReady: {ChatColors.Green}{unreadyPlayerList}");
+                    PrintWrappedLine(HudDestination.Center, $"NotReady: {unreadyPlayerList}");
                 }
                 else
                 {
-                    string unreadyPlayerList = string.Join(", ", unreadyPlayers);
-                    PrintWrappedLine(HudDestination.Center, $"NotReady: {ChatColors.Green}{unreadyPlayerList}");
+                    PrintWrappedLine(HudDestination.Center, "Všetci hráèi sú pripravenı!");
                 }
             }
         }
@@ -182,16 +171,16 @@ namespace MatchZy
             }
         }
         private void SendPausedStateMessage() {
-            if (isPaused && matchStarted) {
-                var pauseTeamName = unpauseData["pauseTeam"];
+        if (isPaused && matchStarted) {
+            var pauseTeamName = unpauseData["pauseTeam"];
                 if ((string)pauseTeamName == "Admin") {
-                    Server.PrintToChatAll($" {ChatColors.Green}Admin{ChatColors.Default} pozastavil zápas.");
+                Server.PrintToChatAll($" {ChatColors.Green}Admin{ChatColors.Default} pozastavil zápas.");
                 } else if ((string)pauseTeamName == "RoundRestore" && !(bool)unpauseData["t"] && !(bool)unpauseData["ct"]) {
-                    Server.PrintToChatAll($" Obnovenie kola, zápas bol pozastavenı. Pre spustenie zápasu musia oba tímy napísa {ChatColors.Green}.unpause");
+                Server.PrintToChatAll($" Obnovenie kola, zápas bol pozastavenı. Pre spustenie zápasu musia oba tímy napísa {ChatColors.Green}.unpause");
                 } else if ((bool)unpauseData["t"] && !(bool)unpauseData["ct"]) {
-                    Server.PrintToChatAll($" {ChatColors.Green}{reverseTeamSides["TERRORIST"].teamName}{ChatColors.Default} chcú spusti zápas. {ChatColors.Green}{reverseTeamSides["CT"].teamName}{ChatColors.Default}, napíš {ChatColors.Green}.unpause {ChatColors.Default}pre potvrdenie.");
+                Server.PrintToChatAll($" {ChatColors.Green}{reverseTeamSides["TERRORIST"].teamName}{ChatColors.Default} chcú spusti zápas. {ChatColors.Green}{reverseTeamSides["CT"].teamName}{ChatColors.Default}, napíš {ChatColors.Green}.unpause {ChatColors.Default}pre potvrdenie.");
                 } else if (!(bool)unpauseData["t"] && (bool)unpauseData["ct"]) {
-                    Server.PrintToChatAll($" {ChatColors.Green}{reverseTeamSides["CT"].teamName}{ChatColors.Default} chcú spusti zápas. {ChatColors.Green}{reverseTeamSides["TERRORIST"].teamName}{ChatColors.Default}, napíš {ChatColors.Green}.unpause {ChatColors.Default}pre potvrdenie.");
+                Server.PrintToChatAll($" {ChatColors.Green}{reverseTeamSides["CT"].teamName}{ChatColors.Default} chcú spusti zápas. {ChatColors.Green}{reverseTeamSides["TERRORIST"].teamName}{ChatColors.Default}, napíš {ChatColors.Green}.unpause {ChatColors.Default}pre potvrdenie.");
                 } else if (!(bool)unpauseData["t"] && !(bool)unpauseData["ct"]) {
                     Server.PrintToChatAll($" {ChatColors.Green}{pauseTeamName}{ChatColors.Default} pozastavili zápas. Pre spustenie hry napíš {ChatColors.Green}.unpause");
                 }
@@ -214,6 +203,10 @@ namespace MatchZy
             KillPhaseTimers();
             if (unreadyPlayerMessageTimer == null) {
                 unreadyPlayerMessageTimer = AddTimer(chatTimerDelay, SendUnreadyPlayersMessage, TimerFlags.REPEAT);
+            }
+            if (unreadyHintMessageTimmer == null)
+            {
+                unreadyHintMessageTimmer = AddTimer(unreadyHintMessageDelay, UnreadyHintMessageStart, TimerFlags.REPEAT);
             }
             isWarmup = true;
             ExecWarmupCfg();
@@ -387,6 +380,7 @@ namespace MatchZy
             if (matchStarted) {
                 Server.ExecuteCommand($"tv_stoprecord");
             }
+
             // Reset match data
             matchStarted = false;
             readyAvailable = true;
@@ -452,6 +446,10 @@ namespace MatchZy
                 // Since we should be already in warmup phase by this point, we are juts setting up the SendUnreadyPlayersMessage timer
                 if (unreadyPlayerMessageTimer == null) {
                     unreadyPlayerMessageTimer = AddTimer(chatTimerDelay, SendUnreadyPlayersMessage, TimerFlags.REPEAT);
+                }
+                if (unreadyHintMessageTimmer == null)
+                {
+                    unreadyHintMessageTimmer = AddTimer(unreadyHintMessageDelay, UnreadyHintMessageStart, TimerFlags.REPEAT);
                 }
             }
         }

@@ -47,7 +47,7 @@ namespace MatchZy
                         playerReadyStatus[player.UserId.Value] = true;
                         player.PrintToChat($" Bol si oznaèený ako pripravený!");
                     }
-                    CheckLiveRequired();
+                    AddTimer(afterReadyDelay, CheckLiveRequired);
                     HandleClanTags();
                     UnreadyHintMessageStart();
                 }

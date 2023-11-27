@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <Reference Include="CounterStrikeSharp.API">
-       <HintPath>/path/to/CounterStrikeSharp.API.dll</HintPath>
+       <HintPath>E:\CS2 Server Plugins\counterstrikesharp-with-runtime-build-76-linux-e0dc053\addons\counterstrikesharp\api\CounterStrikeSharp.API.dll</HintPath>
     </Reference>
   </ItemGroup>
 

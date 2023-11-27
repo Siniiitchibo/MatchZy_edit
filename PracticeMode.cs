@@ -282,6 +282,7 @@ namespace MatchZy
                     {
                         // Remove the specified lineup
                         savedNadesDict[playerSteamID].Remove(saveNadeName);
+                        savedNadesDict.Remove(playerSteamID);
 
                         // Serialize the updated dictionary back to JSON
                         string updatedJson = JsonSerializer.Serialize(savedNadesDict, new JsonSerializerOptions { WriteIndented = true });
