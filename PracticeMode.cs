@@ -178,7 +178,15 @@ namespace MatchZy
                 string lineupDesc = string.Join(" ", lineupUserString, 1, lineupUserString.Length - 1);
 
                 // Get player info: steamid, pos, ang
-                string playerSteamID = player.SteamID.ToString();
+                string playerSteamID;
+                if (isSaveNadesAsGlobalEnabled == false)
+                {
+                    playerSteamID = player.SteamID.ToString();
+                }
+                else
+                {
+                    playerSteamID = "default";
+                }
                 QAngle playerAngle = player.PlayerPawn.Value.EyeAngles;
                 Vector playerPos = player.Pawn.Value.CBodyComponent!.SceneNode.AbsOrigin;
                 string currentMapName = Server.MapName;
@@ -237,7 +245,7 @@ namespace MatchZy
                     //Reply to user
                     ReplyToUserCommand(player, $" \x0DLineup \x06'{lineupName}' \x0Dsaved successfully!");
 					player.PrintToCenter($"Lineup '{lineupName}' saved successfully!");
-					ReplyToUserCommand(player, $" \x0DLineup Code: \x06{lineupName} {playerPos} {playerAngle}");
+                    Server.PrintToChatAll($" \x0D{player.PlayerName} Just saved a Lineup! Lineup Code: \x06{lineupName} {playerPos} {playerAngle}");
                 }
                 catch (JsonException ex)
                 {
@@ -257,7 +265,15 @@ namespace MatchZy
             if (!string.IsNullOrWhiteSpace(saveNadeName))
             {
                 // Grab player steamid
-                string playerSteamID = player.SteamID.ToString();
+                string playerSteamID;
+                if (isSaveNadesAsGlobalEnabled == false)
+                {
+                    playerSteamID = player.SteamID.ToString();
+                }
+                else
+                {
+                    playerSteamID = "default";
+                }
 
                 // Define the file path
                 string savednadesfileName = "MatchZy/savednades.json";
@@ -496,22 +512,22 @@ namespace MatchZy
                                 switch (lineupInfo["Type"])
                                 {
                                     case "Flash":
-                                        NativeAPI.IssueClientCommand((int)player.EntityIndex!.Value.Value - 1, "slot7");
+                                        NativeAPI.IssueClientCommand((int)player.Index! - 1, "slot7");
                                         break;
                                     case "Smoke":
-                                        NativeAPI.IssueClientCommand((int)player.EntityIndex!.Value.Value - 1, "slot8");
+                                        NativeAPI.IssueClientCommand((int)player.Index! - 1, "slot8");
                                         break;
                                     case "HE":
-                                        NativeAPI.IssueClientCommand((int)player.EntityIndex!.Value.Value - 1, "slot6");
+                                        NativeAPI.IssueClientCommand((int)player.Index! - 1, "slot6");
                                         break;
                                     case "Decoy":
-                                        NativeAPI.IssueClientCommand((int)player.EntityIndex!.Value.Value - 1, "slot9");
+                                        NativeAPI.IssueClientCommand((int)player.Index! - 1, "slot9");
                                         break;
                                     case "Molly":
-                                        NativeAPI.IssueClientCommand((int)player.EntityIndex!.Value.Value - 1, "slot10");
+                                        NativeAPI.IssueClientCommand((int)player.Index! - 1, "slot10");
                                         break;
                                     case "":
-                                        NativeAPI.IssueClientCommand((int)player.EntityIndex!.Value.Value - 1, "slot8");
+                                        NativeAPI.IssueClientCommand((int)player.Index! - 1, "slot8");
                                         break;
                                 }
 

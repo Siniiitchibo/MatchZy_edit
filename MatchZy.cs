@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.4.3-alpha (siniii edit-0.3.0)";
+        public override string ModuleVersion => "0.4.3-alpha (siniii edit-0.3.1)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -93,6 +93,7 @@ namespace MatchZy
         public int minimumReadyRequired = 2; // Number of ready players required start the match. If set to 0, all connected players have to ready-up to start the match.
         public bool isWhitelistRequired = false;
         public bool isPlayOutEnabled = false;
+        public bool isSaveNadesAsGlobalEnabled = false;
 
         // User command - action map
         public Dictionary<string, Action<CCSPlayerController?, CommandInfo?>>? commandActions;
@@ -221,6 +222,7 @@ namespace MatchZy
                 { ".restart", OnRestartMatchCommand },
                 { ".settings", OnMatchSettingsCommand },
                 { ".whitelist", OnWLCommand },
+                { ".globalnades", OnSaveNadesAsGlobalCommand },
                 { ".reload_admins", OnReloadAdmins },
                 { ".prac", OnPracCommand },
                 { ".bot", OnBotCommand },

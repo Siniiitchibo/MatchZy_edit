@@ -31,7 +31,29 @@ namespace MatchZy
                 SendPlayerNotAdminMessage(player);
             }
         }
-        
+
+        [ConsoleCommand("css_save_nades_as_global", "Toggles Global Lineups for players")]
+        public void OnSaveNadesAsGlobalCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (IsPlayerAdmin(player, "css_save_nades_as_global", "@css/config"))
+            {
+                isSaveNadesAsGlobalEnabled = !isSaveNadesAsGlobalEnabled;
+                string GlobalNadesStatus = isSaveNadesAsGlobalEnabled ? "povolené" : "zakázané";
+                if (player == null)
+                {
+                    ReplyToUserCommand(player, $"Ukladanie lineup-ov pre všetkých hráèov je {GlobalNadesStatus}!");
+                }
+                else
+                {
+                    player.PrintToChat($"{chatPrefix} Ukladanie lineup-ov pre všetkých hráèov je {ChatColors.Green}{GlobalNadesStatus}{ChatColors.Default}!");
+                }
+            }
+            else
+            {
+                SendPlayerNotAdminMessage(player);
+            }
+        }
+
         [ConsoleCommand("css_ready", "Marks the player ready")]
         public void OnPlayerReady(CCSPlayerController? player, CommandInfo? command) {
             if (player == null) return;

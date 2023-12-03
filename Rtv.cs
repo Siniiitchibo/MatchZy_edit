@@ -55,7 +55,7 @@ namespace MatchZy
 
                 var countPlayers = _usersArray.Count(user => user != null);
                 var countVote = (int)(countPlayers * _config.Needed) == 0 ? 1 : countPlayers * _config.Needed;
-                var user = _usersArray[player.EntityIndex!.Value.Value]!;
+                var user = _usersArray[player.Index]!;
                 if (user.VotedRtv)
                 {
                     PrintToChat(player, "Už si hlasoval pre zmenu mapy!");
@@ -110,7 +110,7 @@ namespace MatchZy
                 return;
             }
 
-            var user = _usersArray[player.EntityIndex!.Value.Value];
+            var user = _usersArray[player.Index]!;
             if (!string.IsNullOrEmpty(user!.ProposedMaps))
             {
                 var buffer = user.ProposedMaps;
@@ -345,8 +345,8 @@ namespace MatchZy
             var playerEntities = Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller");
             foreach (var player in playerEntities)
             {
-                _usersArray[player.EntityIndex!.Value.Value].VotedRtv = false;
-                _usersArray[player.EntityIndex!.Value.Value].ProposedMaps = null;
+                _usersArray[player.Index]!.VotedRtv = false;
+                _usersArray[player.Index]!.ProposedMaps = null;
             }
 
             for (var i = 0; i < _proposedMaps.Length; i++)
