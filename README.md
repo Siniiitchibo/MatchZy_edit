@@ -14,3 +14,4 @@ Main changes:
 - added .forcepause/.forceunpause (already include in main MatchZy 0.4.3)
 - 10sec. delay before start Knife/Live match
 - reload current map after server is empty and than go to Hibernate.
+- Vote and change map after match end
