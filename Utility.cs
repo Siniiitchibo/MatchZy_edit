@@ -315,7 +315,8 @@ namespace MatchZy
             }
             roundKnifeStartMessageTimer = AddTimer(roundKnifeStartMessageDelay, RoundStartMessage);
             // This is to reload the map once it is over so that all flags are reset accordingly
-            Server.ExecuteCommand("mp_match_end_restart true");
+
+            //Server.ExecuteCommand("mp_match_end_restart true");
 
             // Adding timer here to make sure that CFG execution is completed till then
             AddTimer(1, () => {
@@ -617,7 +618,7 @@ namespace MatchZy
                 reverseTeamSides["CT"] = matchzyTeam1;
                 foreach (var key in playerData.Keys) {
                     if (playerData[key].TeamNum == 3) {
-                        matchzyTeam1.teamName = "team_" + playerData[key].PlayerName.Replace(" ", "_");
+                        //matchzyTeam1.teamName = "team_" + playerData[key].PlayerName.Replace(" ", "_");
                         if (matchzyTeam1.coach != null) matchzyTeam1.coach.Clan = $"[{matchzyTeam1.teamName} COACH]";
                         break;
                     }
@@ -631,7 +632,7 @@ namespace MatchZy
                 reverseTeamSides["TERRORIST"] = matchzyTeam2;
                 foreach (var key in playerData.Keys) {
                     if (playerData[key].TeamNum == 2) {
-                        matchzyTeam2.teamName = "team_" + playerData[key].PlayerName.Replace(" ", "_");
+                        //matchzyTeam2.teamName = "team_" + playerData[key].PlayerName.Replace(" ", "_");
                         if (matchzyTeam2.coach != null) matchzyTeam2.coach.Clan = $"[{matchzyTeam2.teamName} COACH]";
                         break;
                     }
@@ -699,19 +700,20 @@ namespace MatchZy
                 (int t1score, int t2score) = GetTeamsScore();
                 database.SetMatchEndData(liveMatchId, winnerName, t1score, t2score);
                 StopDemoRecording();
-                database.WritePlayerStatsToCsv(Server.GameDirectory + "/csgo/MatchZy_Stats", liveMatchId);
+                //database.WritePlayerStatsToCsv(Server.GameDirectory + "/csgo/MatchZy_Stats", liveMatchId);
                 ResetMatch(false);
-
+                /*
                 int matchRestartDelay = ConVar.Find("mp_match_restart_delay").GetPrimitiveValue<int>();
                 AddTimer(matchRestartDelay, ChangeMapOnMatchEnd);
+                */
             }
         }
-
+        /*
         private void ChangeMapOnMatchEnd() {
             ResetMatch();
             Server.ExecuteCommand($"changelevel {Server.MapName}");
         }
-
+        */
         private string GetMatchWinnerName() {
             (int t1score, int t2score) = GetTeamsScore();
             if (t1score > t2score) {
@@ -798,7 +800,7 @@ namespace MatchZy
 
                 ShowDamageInfo();
 
-                database.UpdatePlayerStats(liveMatchId, reverseTeamSides["CT"].teamName, reverseTeamSides["TERRORIST"].teamName, playerData);
+                //database.UpdatePlayerStats(liveMatchId, reverseTeamSides["CT"].teamName, reverseTeamSides["TERRORIST"].teamName, playerData);
                 database.UpdateMatchStats(liveMatchId, t1score, t2score);
 
                 string round = (t1score + t2score).ToString("D2");
