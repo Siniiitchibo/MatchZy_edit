@@ -7,9 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="CounterStrikeSharp.API">
-       <HintPath>E:\CS2 Server Plugins\counterstrikesharp-with-runtime-build-76-linux-e0dc053\addons\counterstrikesharp\api\CounterStrikeSharp.API.dll</HintPath>
-    </Reference>
+    <Reference Include="CounterStrikeSharp.API" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +15,7 @@
     <PackageReference Include="Dapper" Version="2.1.15" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="7.0.13" />
     <PackageReference Include="MySqlConnector" Version="2.3.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.6" />
   </ItemGroup>
 

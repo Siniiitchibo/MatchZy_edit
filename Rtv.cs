@@ -260,13 +260,18 @@ namespace MatchZy
             if (forced)
             {
                 PrintToChatAll($"Poèas hlasovania bola zvolená mapa {_selectedMap}.");
+
+                AddTimer(5, ChangeMapRTV);
+                return;
+                /*
                 Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
                 {
                     Server.ExecuteCommand(IsWsMaps(_selectedMap)
                         ? $"ds_workshop_changelevel {_selectedMap}"
                         : $"map {_selectedMap}");
-                });
-                return;
+                });              
+                return;  
+                */
             }
 
             PrintToChatAll($"Poèas hlasovania bola zvolená mapa {_selectedMap}.");
@@ -278,8 +283,13 @@ namespace MatchZy
                     : $"map {_selectedMap}");
             });
         }
-
-        private bool IsWsMaps(string selectMap)
+        private void ChangeMapRTV()
+        {
+            Server.ExecuteCommand(IsWsMaps(_selectedMap)
+            ? $"ds_workshop_changelevel {_selectedMap}"
+            : $"map {_selectedMap}");
+        }
+            private bool IsWsMaps(string selectMap)
         {
             // Define the file path
             string rtvmapsfileName = "MatchZy/rtvmaps.cfg";
