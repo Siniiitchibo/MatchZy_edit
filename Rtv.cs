@@ -17,24 +17,6 @@ namespace MatchZy
 
     public partial class MatchZy
     {
-        private HookResult EventRoundEnd(EventRoundEnd @event, GameEventInfo info)
-        {
-            _countRounds++;
-            var maxrounds = ConVar.Find("mp_maxrounds").GetPrimitiveValue<int>();
-            if (_countRounds == (maxrounds - _config.VotingRoundInterval))
-            {
-                VoteMap(false);
-            }
-            else if (_countRounds == maxrounds)
-            {
-                Server.ExecuteCommand(!IsWsMaps(_selectedMap)
-                    ? $"map {_selectedMap}"
-                    : $"ds_workshop_changelevel {_selectedMap}");
-            }
-
-            return HookResult.Continue;
-        }
-
         private void CommandRtv(CCSPlayerController? player, CommandInfo commandinfo)
         {
             if (isWarmup || isPractice)
@@ -136,7 +118,6 @@ namespace MatchZy
 
             _isVotingActive = false;
             var nominateMenu = new ChatMenu("RTV");
-            //var mapList = File.ReadAllLines(Path.Combine(ModuleDirectory, "maps.txt"));
             var mapList = File.ReadAllLines(mapsPath);
             var newMapList = mapList.Except(_playedMaps).Except(_proposedMaps)
                 .Select(map => map.StartsWith("ws:") ? map.Substring(3) : map)
@@ -243,13 +224,7 @@ namespace MatchZy
             {
                 if (IsTimeLimit)
                 {
-                    AddTimer(_config.VotingTimeInterval * 60.0f, () =>
-                    {
-                        Server.ExecuteCommand(IsWsMaps(_selectedMap)
-                            ? $"ds_workshop_changelevel {_selectedMap}"
-                            : $"map {_selectedMap}");
-                    });
-                    return;
+                    return;                
                 }
 
                 return;
@@ -263,25 +238,10 @@ namespace MatchZy
 
                 AddTimer(5, ChangeMapRTV);
                 return;
-                /*
-                Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
-                {
-                    Server.ExecuteCommand(IsWsMaps(_selectedMap)
-                        ? $"ds_workshop_changelevel {_selectedMap}"
-                        : $"map {_selectedMap}");
-                });              
-                return;  
-                */
             }
 
             PrintToChatAll($"Poèas hlasovania bola zvolená mapa {_selectedMap}.");
             if (!IsTimeLimit) return;
-            AddTimer(_config.VotingTimeInterval * 60.0f, () =>
-            {
-                Server.ExecuteCommand(IsWsMaps(_selectedMap)
-                    ? $"ds_workshop_changelevel {_selectedMap}"
-                    : $"map {_selectedMap}");
-            });
         }
         private void ChangeMapRTV()
         {
@@ -295,7 +255,6 @@ namespace MatchZy
             string rtvmapsfileName = "MatchZy/rtvmaps.cfg";
             string mapsPath = Path.Join(Server.GameDirectory + "/csgo/cfg", rtvmapsfileName);
 
-            //var mapsPath = Path.Combine(ModuleDirectory, "maps.txt");
             var mapList = File.ReadAllLines(mapsPath);
 
             return mapList.Any(map => map.Trim() == "ws:" + selectMap);
@@ -316,8 +275,6 @@ namespace MatchZy
         {
             string settingsfileName = "MatchZy/settings.json";
             string configPath = Path.Join(Server.GameDirectory + "/csgo/cfg", settingsfileName);
-
-            //var configPath = Path.Combine(ModuleDirectory, "settings.json");
 
             if (!File.Exists(configPath)) return CreateConfig(configPath);
 

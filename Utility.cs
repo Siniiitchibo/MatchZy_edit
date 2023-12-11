@@ -8,8 +8,8 @@ using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Admin;
 using System.Text.RegularExpressions;
-using CounterStrikeSharp.API.Modules.Entities;
-using System.Numerics;
+using System.Text;
+using Newtonsoft.Json.Linq;
 
 
 namespace MatchZy
@@ -614,7 +614,8 @@ namespace MatchZy
             int countOfReadyPlayers = playerReadyStatus.Count(kv => kv.Value == true);
             bool liveRequired = false;
             if (minimumReadyRequired == 0) {
-                if (countOfReadyPlayers >= connectedPlayers) {
+                if (countOfReadyPlayers >= connectedPlayers && connectedPlayers > 0)
+                {
                     liveRequired = true;
                 }
             } else if (countOfReadyPlayers >= minimumReadyRequired) {
@@ -714,24 +715,17 @@ namespace MatchZy
         }
         private void HandleMatchEnd() {
             if (isMatchLive) {
+                int currentMapNumber = matchConfig.CurrentMapNumber;
                 string winnerName = GetMatchWinnerName();
+                string statsPath = Server.GameDirectory + "/csgo/MatchZy_Stats/" + liveMatchId.ToString();
                 (int t1score, int t2score) = GetTeamsScore();
                 database.SetMatchEndData(liveMatchId, winnerName, t1score, t2score);
                 StopDemoRecording();
-                //database.WritePlayerStatsToCsv(Server.GameDirectory + "/csgo/MatchZy_Stats", liveMatchId);
+                database.WritePlayerStatsToCsv(statsPath, liveMatchId, currentMapNumber);
                 ResetMatch(false);
-                /*
-                int matchRestartDelay = ConVar.Find("mp_match_restart_delay").GetPrimitiveValue<int>();
-                AddTimer(matchRestartDelay, ChangeMapOnMatchEnd);
-                */
             }
         }
-        /*
-        private void ChangeMapOnMatchEnd() {
-            ResetMatch();
-            Server.ExecuteCommand($"changelevel {Server.MapName}");
-        }
-        */
+
         private string GetMatchWinnerName() {
             (int t1score, int t2score) = GetTeamsScore();
             if (t1score > t2score) {
@@ -1016,10 +1010,12 @@ namespace MatchZy
         {
             if (isPractice)
             {
-                ReplyToUserCommand(player, $" Dostupné príkazy:");
-                ReplyToUserCommand(player, $" {ChatColors.Green}.exitprac .bot .nobots .spawn .ctspawn .tspawn .clear .god");
-                ReplyToUserCommand(player, $" Nades lineup príkazy:");
-                ReplyToUserCommand(player, $" {ChatColors.Green}.listnades .loadnade <name> .savenade <názov popis> .deletenade <name> .importnade <code>");
+                Server.PrintToChatAll($" Dostupné príkazy:");
+                Server.PrintToChatAll($" {ChatColors.Green}.exitprac .spawn .ctspawn .tspawn .clear .god .t .ct .spec .fas");
+                Server.PrintToChatAll($" Príkazy pre botov:");
+                Server.PrintToChatAll($" {ChatColors.Green}.bot .crouchbot .boost .crouchboost .nobots");
+                Server.PrintToChatAll($" Nades lineup príkazy:");
+                Server.PrintToChatAll($" {ChatColors.Green}.listnades .loadnade <name> .savenade <názov popis> .delnade <name> .importnade <code>");
                 return;
             }
             if (readyAvailable)
@@ -1034,7 +1030,7 @@ namespace MatchZy
             {
                 string stopCommandMessage = isStopCommandAvailable ? ".stop" : "";
                 ReplyToUserCommand(player, $" Dostupné príkazy:");
-                ReplyToUserCommand(player, $" {ChatColors.Green}.pause .unpause {stopCommandMessage}");
+                ReplyToUserCommand(player, $" {ChatColors.Green}.pause .unpause .tac .tech{stopCommandMessage}");
                 return;
             }
         }

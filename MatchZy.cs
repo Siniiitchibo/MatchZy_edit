@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.5.0-alpha (siniii edit-0.3.2)";
+        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.3.4)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -38,7 +38,7 @@ namespace MatchZy
         private bool _isVotingActive;
         private bool IsTimeLimit;
 
-        // Match phase data
+        // Plugin start phase data
         public bool isPractice = false;
         public bool readyAvailable = true;
         public bool matchStarted = false;
@@ -108,34 +108,14 @@ namespace MatchZy
             string rtvmapsfileName = "MatchZy/rtvmaps.cfg";
             string mapsFilePath = Path.Join(Server.GameDirectory + "/csgo/cfg", rtvmapsfileName);
 
-            //string mapsFilePath = Path.Combine(ModuleDirectory, "maps.txt");
-
             if (!File.Exists(mapsFilePath))
                 File.WriteAllText(mapsFilePath, "");
 
-            RegisterEventHandler<EventRoundEnd>(EventRoundEnd);
             RegisterListener<Listeners.OnClientConnected>(slot =>
             {
                 _usersArray[slot + 1] = new Users { ProposedMaps = null!, VotedRtv = false };
             });
-            RegisterEventHandler<EventRoundStart>(((@event, info) =>
-            {
-                if (_mapTimer != null) return HookResult.Continue;
 
-                IsTimeLimit = false;
-                _timeLimit = ConVar.Find("mp_timelimit")!.GetPrimitiveValue<float>() * 60.0f;
-
-                if (_timeLimit > 0 && _timeLimit - _config.VotingTimeInterval * 60.0f > 0)
-                {
-                    _mapTimer = AddTimer(_timeLimit - _config.VotingTimeInterval,
-                        () =>
-                        {
-                            IsTimeLimit = true;
-                            VoteMap(false);
-                        });
-                }
-                return HookResult.Continue;
-            }));
             RegisterListener<Listeners.OnMapStart>(name =>
             {
                 ResetData();
@@ -168,7 +148,6 @@ namespace MatchZy
                 string rtvmapsfileName = "MatchZy/rtvmaps.cfg";
                 string mapsPath = Path.Join(Server.GameDirectory + "/csgo/cfg", rtvmapsfileName);
 
-                //var mapsPath = Path.Combine(ModuleDirectory, "maps.txt");
                 var mapList = File.ReadAllLines(mapsPath);
                 var nominateMenu = new ChatMenu("Nominate");
                 foreach (var map in mapList)
@@ -225,6 +204,9 @@ namespace MatchZy
                 { ".reload_admins", OnReloadAdmins },
                 { ".prac", OnPracCommand },
                 { ".bot", OnBotCommand },
+                { ".crouchbot", OnCrouchBotCommand },
+                { ".boost", OnBoostBotCommand },
+                { ".crouchboost", OnCrouchBoostBotCommand },
                 { ".nobots", OnNoBotsCommand },
                 { ".god", OnGodCommand },
                 { ".ff", OnFastForwardCommand },
@@ -234,7 +216,12 @@ namespace MatchZy
                 { ".uncoach", OnUnCoachCommand },
                 { ".exitprac", OnExitPracCommand },
                 { ".stop", OnStopCommand },
-                { ".help", OnHelpCommand }
+                { ".help", OnHelpCommand },
+                { ".t", OnTCommand },
+                { ".ct", OnCTCommand },
+                { ".spec", OnSpecCommand },
+                { ".fas", OnFASCommand },
+                { ".watchme", OnFASCommand }
             };
 
             RegisterEventHandler<EventPlayerConnectFull>((@event, info) => {
@@ -525,13 +512,7 @@ namespace MatchZy
                 }
 
             }, HookMode.Post);
-            /*
-            RegisterEventHandler<EventMapShutdown>((@event, info) => {
-                Log($"[EventMapShutdown] Resetting match!");
-                ResetMatch();
-                return HookResult.Continue;
-            });
-            */
+
             RegisterListener<Listeners.OnMapStart>(mapName => {
                 Log($"[Listeners.OnMapStart]");
                 if (isWarmup) StartWarmup();
@@ -653,8 +634,8 @@ namespace MatchZy
 		    HandleSaveNadeCommand(player, commandArg);
 		    
                 }
-		if (message.StartsWith(".deletenade")) {
-                    string command = ".deletenade";
+		if (message.StartsWith(".delnade")) {
+                    string command = ".delnade";
                     string commandArg = message.Substring(command.Length).Trim();
 		    HandleDeleteNadeCommand(player, commandArg);
 		    
