@@ -583,13 +583,13 @@ namespace MatchZy
             if (currentHP > 100)
             {
                 player.PlayerPawn.Value.Health = 100;
-                ReplyToUserCommand(player, $"God mode disabled!");
+                ReplyToUserCommand(player, $"God mode {ChatColors.Green}zak·zan˝!");
                 return;
             }
             else
             {
                 player.PlayerPawn.Value.Health = 2147483647; // max 32bit int
-                ReplyToUserCommand(player, $"God mode enabled!");
+                ReplyToUserCommand(player, $"God mode {ChatColors.Green}povolen˝");
                 return;
             }
         }
@@ -605,7 +605,7 @@ namespace MatchZy
 
             if (matchStarted)
             {
-                ReplyToUserCommand(player, "Practice Mode cannot be started when a match has been started!");
+                ReplyToUserCommand(player, "Practice Mode nemÙûe byù spusten˝ poËas aktÌvneho z·pasu!");
                 return;
             }
 
@@ -785,7 +785,7 @@ namespace MatchZy
                 }
                 if (!unusedBotFound)
                 {
-                    Server.PrintToChatAll($"{chatPrefix} Cannot add bots, the team is full! Use .nobots to remove the current bots.");
+                    Server.PrintToChatAll($" Nie je moûnÈ pridaù ÔalöÌch botov, tÌm je pln˝. Pouûi prÌkaz {ChatColors.Green}.nobots {ChatColors.Default}pre odstr·nenie aktu·lnych botov.");
                 }
 
                 isSpawningBot = false;
