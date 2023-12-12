@@ -131,14 +131,30 @@ namespace MatchZy
         }
 
         [ConsoleCommand("css_pause", "Pause the match")]
-        public void OnPauseCommand(CCSPlayerController? player, CommandInfo? command) {            
-            PauseMatch(player, command);
+        public void OnPauseCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (isPauseCommandForTactical)
+            {
+                OnTacCommand(player, command);
+            }
+            else
+            {
+                PauseMatch(player, command);
+            }
         }
 
-        [ConsoleCommand("css_forcepause", "Admin Pause the match")]
+        [ConsoleCommand("css_fp", "Pause the matchas an admin")]
+        [ConsoleCommand("css_forcepause", "Pause the match as an admin")]
         public void OnForcePauseCommand(CCSPlayerController? player, CommandInfo? command)
         {
             ForcePauseMatch(player, command);
+        }
+
+        [ConsoleCommand("css_fup", "Pause the matchas an admin")]
+        [ConsoleCommand("css_forceunpause", "Pause the match as an admin")]
+        public void OnForceUnpauseCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            ForceUnpauseMatch(player, command);
         }
 
         [ConsoleCommand("css_unpause", "Unpause the match")]
@@ -149,15 +165,17 @@ namespace MatchZy
                     player?.PrintToChat($"Z·pas bol pozastaven˝ Adminom. Pauzu mÙûe zruöiù iba Admin!");
                     return;
                 }
-                string unpauseTeamName = "UnPauseTeam";
-                string remainingUnpauseTeam = "UnPauseTeam";
-                if (player?.TeamNum == 2) {
+                string unpauseTeamName = "Admin";
+                string remainingUnpauseTeam = "Admin";
+                if (player?.TeamNum == 2)
+                {
                     unpauseTeamName = reverseTeamSides["TERRORIST"].teamName;
                     remainingUnpauseTeam = reverseTeamSides["CT"].teamName;
-                    if (!(bool)unpauseData["t"]) {
+                    if (!(bool)unpauseData["t"])
+                    {
                         unpauseData["t"] = true;
                     }
-                    
+
                 } else if (player?.TeamNum == 3) {
                     unpauseTeamName = reverseTeamSides["CT"].teamName;
                     remainingUnpauseTeam = reverseTeamSides["TERRORIST"].teamName;
@@ -174,7 +192,14 @@ namespace MatchZy
                     unpauseData["ct"] = false;
                     unpauseData["t"] = false;
                 }
-                else {
+                else if (unpauseTeamName == "Admin")
+                {
+                    Server.PrintToChatAll($"{chatPrefix} {ChatColors.Green}{unpauseTeamName}{ChatColors.Default} has unpaused the match, resuming the match!");
+                    Server.ExecuteCommand("mp_unpause_match;");
+                    isPaused = false;
+                    unpauseData["ct"] = false;
+                    unpauseData["t"] = false;
+                } else {
                     Server.PrintToChatAll($" {ChatColors.Green}{unpauseTeamName}{ChatColors.Default} chc˙ pokraËovaù v z·pase. {ChatColors.Green}{remainingUnpauseTeam}{ChatColors.Default}Pre potvrdenie napÌö {ChatColors.Green}.unpause");
                 }
                 if (!isPaused && pausedStateTimer != null) {
@@ -184,59 +209,49 @@ namespace MatchZy
             }
         }
 
-        [ConsoleCommand("css_forceunpause", "Force Unpause the match")]
-        public void OnForceUnpauseCommand(CCSPlayerController? player, CommandInfo? command)
+        [ConsoleCommand("css_tac", "Starts a tactical timeout for the requested team")]
+        public void OnTacCommand(CCSPlayerController? player, CommandInfo? command)
         {
-            if (isMatchLive && isPaused)
+            if (player == null) return;
+
+            if (matchStarted && isMatchLive)
             {
-                if (!IsPlayerAdmin(player, "css_forceunpause", "@css/config"))
+                Log($"[.tac command sent via chat] Sent by: {player.UserId}, connectedPlayers: {connectedPlayers}");
+                if (isPaused)
                 {
-                    SendPlayerNotAdminMessage(player);
+                    ReplyToUserCommand(player, "Match is already paused, cannot start a tactical timeout!");
                     return;
                 }
-                Server.PrintToChatAll($" {ChatColors.Green}Admin{ChatColors.Default} spustil hru, z·pas bude pokraËovaù!");
-                Server.ExecuteCommand("mp_unpause_match;");
-                isPaused = false;
-                unpauseData["ct"] = false;
-                unpauseData["t"] = false;
-                if (!isPaused && pausedStateTimer != null)
+                if (player.TeamNum == 2)
                 {
-                    pausedStateTimer.Kill();
-                    pausedStateTimer = null;
-                }
-                if (player == null)
-                {
-                    Server.PrintToConsole("Admin spustil hru, z·pas bude pokraËovaù!");
-                }
-            }
-        }
-
-        [ConsoleCommand("css_tac", "Starts a tactical timeout for the requested team")]
-        public void OnTacCommand(CCSPlayerController? player, CommandInfo? command) {
-            if (player == null) return;
-            
-            if (matchStarted && isMatchLive) {
-                Log($"[.tac command sent via chat] Sent by: {player.UserId}, connectedPlayers: {connectedPlayers}");
-                if (player.TeamNum == 2) {
                     Server.ExecuteCommand("timeout_terrorist_start");
-                } else if (player.TeamNum == 3) {
+                }
+                else if (player.TeamNum == 3)
+                {
                     Server.ExecuteCommand("timeout_ct_start");
-                } 
+                }
             }
         }
 
-        [ConsoleCommand("css_kniferound", "Toggles knife round for the match")]
-        public void OnKifeCommand(CCSPlayerController? player, CommandInfo? command) {
-            if (IsPlayerAdmin(player, "css_kniferound", "@css/config"))
+        [ConsoleCommand("css_roundknife", "Toggles knife round for the match")]
+        [ConsoleCommand("css_rk", "Toggles knife round for the match")]
+        public void OnKifeCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (IsPlayerAdmin(player, "css_roundknife", "@css/config"))
             {
                 isKnifeRequired = !isKnifeRequired;
                 string knifeStatus = isKnifeRequired ? "Enabled" : "Disabled";
-                if (player == null) {
+                if (player == null)
+                {
                     ReplyToUserCommand(player, $"Knife round is now {knifeStatus}!");
-                } else {
+                }
+                else
+                {
                     player.PrintToChat($"{chatPrefix} Knife round is now {ChatColors.Green}{knifeStatus}{ChatColors.Default}!");
                 }
-            } else {
+            }
+            else
+            {
                 SendPlayerNotAdminMessage(player);
             }
         }
@@ -299,6 +314,30 @@ namespace MatchZy
             HandleMapChangeCommand(player, mapName);
         }
 
+        [ConsoleCommand("css_rmap", "Reloads the current map")]
+        private void OnMapReloadCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null) return;
+            if (!IsPlayerAdmin(player))
+            {
+                SendPlayerNotAdminMessage(player);
+                return;
+            }
+            string currentMapName = Server.MapName;
+            if (long.TryParse(currentMapName, out _))
+            { // Check if mapName is a long for workshop map ids
+                Server.ExecuteCommand($"host_workshop_map \"{currentMapName}\"");
+            }
+            else if (Server.IsMapValid(currentMapName))
+            {
+                Server.ExecuteCommand($"changelevel \"{currentMapName}\"");
+            }
+            else
+            {
+                player.PrintToChat($"{chatPrefix} Invalid map name!");
+            }
+        }
+
         [ConsoleCommand("css_start", "Force starts the match")]
         public void OnStartCommand(CCSPlayerController? player, CommandInfo? command) {
             if (player == null) return;
@@ -343,12 +382,15 @@ namespace MatchZy
         }
 
         [ConsoleCommand("reload_admins", "Reload admins of MatchZy")]
-        public void OnReloadAdmins(CCSPlayerController? player, CommandInfo? command) {
+        public void OnReloadAdmins(CCSPlayerController? player, CommandInfo? command)
+        {
             if (IsPlayerAdmin(player, "reload_admins", "@css/config"))
             {
                 LoadAdmins();
                 UpdatePlayersMap();
-            } else {
+            }
+            else
+            {
                 SendPlayerNotAdminMessage(player);
             }
         }

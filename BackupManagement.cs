@@ -182,6 +182,11 @@ namespace MatchZy
                 ReplyToUserCommand(player, "You cannot use this command after the game has ended.");
                 return;
             }
+            if (IsTacticalTimeoutActive())
+            {
+                ReplyToUserCommand(player, "You cannot use this command when tactical timeout is active.");
+                return;
+            }
             if (unreadyPlayerMessageTimer != null)
             {
                 unreadyPlayerMessageTimer.Kill();
@@ -192,6 +197,12 @@ namespace MatchZy
                 ReplyToUserCommand(player, $"Backup file {fileName} does not exist, please make sure you are restoring a valid backup.");
                 return;
             }
+
+            var gameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+
+            // We set active timeouts to false so that timeout does not start after the round has been restored.
+            // This is to prevent any buggish behaviour with timeouts (like incorrect timeout used showing, or force-unpausing the match once timeout ends)
+            gameRules.CTTimeOutActive = gameRules.TerroristTimeOutActive = false;
 
             Server.ExecuteCommand($"mp_backup_restore_load_file {fileName}");
 
@@ -247,6 +258,14 @@ namespace MatchZy
                             // Server.ExecuteCommand($"mp_teamname_1 {matchzyTeam1.teamName}");
                             // Server.ExecuteCommand($"mp_teamname_2 {matchzyTeam2.teamName}");
                         }
+                        if (kvp.Key == "TerroristTimeOuts")
+                        {
+                            gameRules.TerroristTimeOuts = int.Parse(kvp.Value);
+                        }
+                        if (kvp.Key == "CTTimeOuts")
+                        {
+                            gameRules.CTTimeOuts = int.Parse(kvp.Value);
+                        }
                     }
                 }
                 catch (Exception e)
@@ -292,6 +311,8 @@ namespace MatchZy
                     }
                 }
 
+                var gameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+
                 Dictionary<string, string> roundData = new()
                     {
                         { "matchid", liveMatchId.ToString() },
@@ -304,6 +325,8 @@ namespace MatchZy
                         { "team2_flag", matchzyTeam2.teamFlag },
                         { "team2_tag", matchzyTeam2.teamTag },
                         { "team2_side", teamSides[matchzyTeam2] },
+                        { "TerroristTimeOuts", gameRules.TerroristTimeOuts.ToString()},
+                        { "CTTimeOuts", gameRules.CTTimeOuts.ToString() },
                     };
                 JsonSerializerOptions options = new()
                 {

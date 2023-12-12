@@ -1,0 +1,35 @@
+{
+  "Siniii_tchibo": {
+    "identity": "76561199072704425",
+    "immunity": 100,
+    "flags": [
+      "@css/reservation",
+      "@css/generic",
+      "@css/kick",
+      "@css/ban",
+      "@css/unban",
+      "@css/vip",
+      "@css/slay",
+      "@css/changemap",
+      "@css/cvar",
+      "@css/config",
+      "@css/chat",
+      "@css/vote",
+      "@css/password",
+      "@css/rcon",
+      "@css/cheats",
+      "@css/root"
+    ],
+    "groups": [
+      "#css/admin"
+    ],
+    "command_overrides": {
+      "css_plugins": true,
+      "css": false
+    }
+  },
+  "Another erikj": {
+    "identity": "",
+    "flags": [ "" ]
+  }
+}

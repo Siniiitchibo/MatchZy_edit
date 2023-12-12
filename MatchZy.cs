@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.3.5)";
+        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.0)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -40,13 +40,15 @@ namespace MatchZy
 
         // Plugin start phase data
         public bool isPractice = false;
-        public bool readyAvailable = true;
+        public bool isSleep = false;
+        public bool readyAvailable = false;
         public bool matchStarted = false;
-        public bool isWarmup = true;
+        public bool isWarmup = false;
         public bool isKnifeRound = false;
         public bool isSideSelectionPhase = false;
         public bool isMatchLive = false;
         public long liveMatchId = -1;
+        public int autoStartMode = 1;
 
         // Pause Data
         public bool isPaused = false;
@@ -55,6 +57,8 @@ namespace MatchZy
             { "t", false },
             { "pauseTeam", "" }
         };
+
+        bool isPauseCommandForTactical = false;
 
         // Knife Data
         public int knifeWinner = 0;
@@ -97,9 +101,9 @@ namespace MatchZy
         // User command - action map
         public Dictionary<string, Action<CCSPlayerController?, CommandInfo?>>? commandActions;
 
-        // SQLite Database 
-        private Database database;
-    
+        // SQLite/MySQL Database 
+        private Database database = new();
+
         public override void Load(bool hotReload) {
             // RTV data
             _config = LoadConfig();
@@ -139,8 +143,8 @@ namespace MatchZy
 
             LoadAdmins();
 
-            database = new Database();
             database.InitializeDatabase(ModuleDirectory);
+
             // This sets default config ConVars
             Server.ExecuteCommand("execifexists MatchZy/config.cfg");
 
@@ -150,7 +154,7 @@ namespace MatchZy
             reverseTeamSides["TERRORIST"] = matchzyTeam2;
 
             if (!hotReload) {
-                StartWarmup();
+                AutoStart();
             } else {
                 // Pluign should not be reloaded while a match is live (this would messup with the match flags which were set)
                 // Only hot-reload the plugin if you are testing something and don't want to restart the server time and again.
@@ -166,16 +170,21 @@ namespace MatchZy
                 { ".ur", OnPlayerUnReady },
                 { ".stay", OnTeamStay },
                 { ".switch", OnTeamSwitch },
-                { ".tech", OnPauseCommand },
+                { ".swap", OnTeamSwitch },
+                { ".tech", OnTechCommand },
                 { ".pause", OnPauseCommand },
-                { ".forcepause", OnForcePauseCommand },
                 { ".unpause", OnUnpauseCommand },
+                { ".forcepause", OnForcePauseCommand },
+                { ".fp", OnForcePauseCommand },
                 { ".forceunpause", OnForceUnpauseCommand },
+                { ".fup", OnForceUnpauseCommand },
                 { ".tac", OnTacCommand },
-                { ".kniferound", OnKifeCommand },
+                { ".roundknife", OnKifeCommand },
+                { ".rk", OnKifeCommand },
                 { ".playout", OnPlayoutCommand },
                 { ".start", OnStartCommand },
                 { ".restart", OnRestartMatchCommand },
+                { ".reloadmap", OnMapReloadCommand },
                 { ".settings", OnMatchSettingsCommand },
                 { ".whitelist", OnWLCommand },
                 { ".globalnades", OnSaveNadesAsGlobalCommand },
@@ -192,7 +201,7 @@ namespace MatchZy
                 { ".clear", OnClearCommand },
                 { ".match", OnMatchCommand },
                 { ".uncoach", OnUnCoachCommand },
-                { ".exitprac", OnExitPracCommand },
+                { ".exitprac", OnMatchCommand },
                 { ".stop", OnStopCommand },
                 { ".help", OnHelpCommand },
                 { ".t", OnTCommand },
@@ -280,7 +289,7 @@ namespace MatchZy
                             Log($"[FULL CONNECT] First player has connected, starting warmup!");
                             Server.ExecuteCommand($"sv_hibernate_when_empty 0");
                             ExecUnpracCommands();
-                            StartWarmup();
+                            AutoStart();
                         }
                     }
                     return HookResult.Continue;

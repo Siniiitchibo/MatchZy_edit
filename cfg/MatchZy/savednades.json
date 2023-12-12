@@ -251,6 +251,184 @@
       "Desc": "Garage Smoke, Just throw",
       "Map": "de_cache",
       "Type": "Smoke"
+    },
+    "understairs": {
+      "LineupPos": "815.9701 -1460.4489 -108.96875",
+      "LineupAng": "-27.518738 -175.09695 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "jungle": {
+      "LineupPos": "875.9724 -1208.5125 -108.96871",
+      "LineupAng": "-9.752541 -173.93105 0",
+      "Desc": "",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "underpalace": {
+      "LineupPos": "16.034517 -2359.9902 -39.96875",
+      "LineupAng": "10.332457 74.00672 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Molly",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "afrompalace": {
+      "LineupPos": "16.032228 -2319.9697 -39.96875",
+      "LineupAng": "-10.366267 76.43657 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Flash",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "pit": {
+      "LineupPos": "-961.8137 -2499.229 -167.96875",
+      "LineupAng": "-15.89048 39.85815 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "wood": {
+      "LineupPos": "-964.06995 -2489.537 -167.96875",
+      "LineupAng": "-17.52722 21.67428 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Molly",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "hell": {
+      "LineupPos": "-1119.9688 -1527.9688 -159.04944",
+      "LineupAng": "-17.527222 -0.21836713 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Molly",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "tetris": {
+      "LineupPos": "-1119.9688 -1527.9679 -159.04953",
+      "LineupAng": "-18.141018 0.67675763 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "HE",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "mid": {
+      "LineupPos": "-1247.9683 -924.03125 -167.96875",
+      "LineupAng": "-35.90703 58.2462 0",
+      "Desc": "",
+      "Map": "de_mirage",
+      "Type": "Flash",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "short": {
+      "LineupPos": "360.075 -691.96875 -163.35527",
+      "LineupAng": "-23.733376 160.90475 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "windowmarket": {
+      "LineupPos": "-160.03125 887.9657 -135.32806",
+      "LineupAng": "-50.94503 -146.44853 0",
+      "Desc": "jumpthrow",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "exitmarket": {
+      "LineupPos": "-160.03125 887.9657 -135.32806",
+      "LineupAng": "-42.147255 -151.8961 0",
+      "Desc": "jumpthrow",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "palace": {
+      "LineupPos": "151.96875 -2071.9688 -167.96875",
+      "LineupAng": "-32.770523 105.66866 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Molly",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "pit\u0026tetris": {
+      "LineupPos": "151.96875 -1914.0314 -167.96875",
+      "LineupAng": "-44.29647 -104.92256 0",
+      "Desc": "go",
+      "Map": "de_mirage",
+      "Type": "Flash",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "stairs": {
+      "LineupPos": "1145.7455 -1183.972 -205.57141",
+      "LineupAng": "-40.135822 -165.01003 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "topcontspawn": {
+      "LineupPos": "1239.728 -1127.7722 -254.28497",
+      "LineupAng": "-24.31308 -174.73755 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "smoketicket": {
+      "LineupPos": "1258.3308 -871.97156 -143.96873",
+      "LineupAng": "-21.483078 -144.18663 0",
+      "Desc": "jumpthrow",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "apps": {
+      "LineupPos": "-1360.2356 815.9686 -79.96875",
+      "LineupAng": "4.193695 -153.22632 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "afrommid": {
+      "LineupPos": "386.80515 202.37567 -256.78564",
+      "LineupAng": "-38.839752 -111.49441 0",
+      "Desc": "jumpthrow",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "window": {
+      "LineupPos": "343.30212 -621.6198 -162.33173",
+      "LineupAng": "-33.553955 179.7789 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    },
+    "confromtopmid": {
+      "LineupPos": "343.30798 -621.619 -162.33197",
+      "LineupAng": "-18.004532 -168.55878 0",
+      "Desc": "classic",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "\uD835\uDCAF\uD835\uDCAA\uD835\uDC40\uD835\uDC3C\uD835\uDCA6"
+    }
+  },
+  "76561199072704425": {
+    "short": {
+      "LineupPos": "1422.9688 -367.96844 -167.96872",
+      "LineupAng": "-30.201635 177.29793 0",
+      "Desc": "jumpthrow",
+      "Map": "de_mirage",
+      "Type": "Smoke",
+      "Player": "Siniii_tchibo"
     }
   }
 }
