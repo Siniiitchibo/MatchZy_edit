@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.1)";
+        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.2)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -162,6 +162,7 @@ namespace MatchZy
             }
 
             commandActions = new Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> {
+                { ".load", CommandLoad },
                 { ".rtv", CommandRtv },
                 { ".ready", OnPlayerReady },
                 { ".rdy", OnPlayerReady },

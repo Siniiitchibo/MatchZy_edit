@@ -98,6 +98,7 @@ namespace MatchZy
         private void SendUnreadyPlayersMessage() {
             if (GetRealPlayersCount() == 0)
             {
+                ResetMatch();
                 Server.ExecuteCommand($"sv_hibernate_when_empty 1");
             }
             if (isWarmup && !matchStarted)
@@ -168,6 +169,7 @@ namespace MatchZy
                 {
                     var currentMapName = Server.MapName;
                     Server.ExecuteCommand($"changelevel {currentMapName}");
+                    ResetMatch();
                 }
             }
         }

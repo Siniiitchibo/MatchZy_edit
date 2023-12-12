@@ -338,6 +338,34 @@ namespace MatchZy
             }
         }
 
+        [ConsoleCommand("css_load", "Load match settings")]
+        public void CommandLoad(CCSPlayerController? player, CommandInfo? command)
+        {
+            //if (player == null) return;
+
+            if (IsPlayerAdmin(player, "css_load", "@css/config"))
+            {
+                if (isMatchLive)
+                {
+                    player.PrintToChat($" {ChatColors.Green}Aktu·lne nie je moûnÈ naËÌtaù config!");
+                    return;
+                }
+                else if (isMatchSetup)
+                {
+                    player.PrintToChat($" {ChatColors.Green}Z·pas uû je nastaven˝!");
+                    return;
+                }
+                if (isWarmup || isPractice)
+                {
+                    Server.ExecuteCommand($"matchzy_loadmatch match.json");
+                }
+            }
+            else
+            {
+                SendPlayerNotAdminMessage(player);
+            }
+        }
+
         [ConsoleCommand("css_start", "Force starts the match")]
         public void OnStartCommand(CCSPlayerController? player, CommandInfo? command) {
             if (player == null) return;

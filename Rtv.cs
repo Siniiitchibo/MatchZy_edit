@@ -19,6 +19,11 @@ namespace MatchZy
     {
         private void CommandRtv(CCSPlayerController? player, CommandInfo commandinfo)
         {
+            if (isMatchSetup)
+            {
+                PrintToChat(player, $" {ChatColors.Gold}PoËas nastavenÈho z·pasu nie je moûnÈ hlasovaù!");
+                return;
+            }
             if (isWarmup || isPractice)
             {
                 if (player == null) return;
@@ -52,7 +57,7 @@ namespace MatchZy
                     VoteMap(true);
             }
             else if (isMatchLive || isKnifeRound) {
-                PrintToChat(player, $" {ChatColors.Gold}Nie je moûnÈ hlasovaù poËas z·pasu!");
+                PrintToChat(player, $" {ChatColors.Gold}Nie je moûnÈ hlasovaù poËas z·pasu.");
                 return;
             }
         }
