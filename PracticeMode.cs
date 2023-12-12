@@ -47,6 +47,8 @@ namespace MatchZy
             isWarmup = false;
             readyAvailable = false;
 
+            KillPhaseTimers();
+
             var absolutePath = Path.Join(Server.GameDirectory + "/csgo/cfg", practiceCfgPath);
 
             if (File.Exists(Path.Join(Server.GameDirectory + "/csgo/cfg", practiceCfgPath)))
@@ -597,12 +599,6 @@ namespace MatchZy
         [ConsoleCommand("css_prac", "Starts practice mode")]
         public void OnPracCommand(CCSPlayerController? player, CommandInfo? command)
         {
-            if (!IsPlayerAdmin(player, "css_prac", "@css/map", "@custom/prac"))
-            {
-                SendPlayerNotAdminMessage(player);
-                return;
-            }
-
             if (matchStarted)
             {
                 ReplyToUserCommand(player, "Practice Mode nemÙûe byù spusten˝ poËas aktÌvneho z·pasu!");

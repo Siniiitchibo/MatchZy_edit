@@ -373,11 +373,6 @@ namespace MatchZy
         [ConsoleCommand("css_exitprac", "Starts match mode")]
         public void OnExitPracCommand(CCSPlayerController? player, CommandInfo? command)
         {
-            if (pracMessageTimer != null)
-            {
-                pracMessageTimer.Kill();
-                pracMessageTimer = null;
-            }
             if (matchStarted) {
                 ReplyToUserCommand(player, "Pug mód už je nastavený!");
                 return;
