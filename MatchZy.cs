@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.0)";
+        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.1)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -503,11 +503,6 @@ namespace MatchZy
             RegisterListener<Listeners.OnMapStart>(mapName => {
                 Log($"[Listeners.OnMapStart]");
                 if (isWarmup) StartWarmup();
-            });
-
-            RegisterListener<Listeners.OnMapEnd>(() => {
-                Log($"[Listeners.OnMapEnd] Resetting match!");
-                ResetMatch();
             });
 
             RegisterEventHandler<EventPlayerDeath>((@event, info) => {
