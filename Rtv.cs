@@ -31,7 +31,7 @@ namespace MatchZy
 
                 if (!_isVotingActive)
                 {
-                    PrintToChat(player, "Hlasovanie v tomto momente nie je moûnÈ.");
+                    PrintToChat(player, "Hlasovanie uû bolo spustenÈ a prebieha!");
                     return;
                 }
 
@@ -46,68 +46,15 @@ namespace MatchZy
 
                 user.VotedRtv = true;
                 _votedRtv++;
-                PrintToChatAll($"{player.PlayerName} chce spustiù hlasovanie. ({_votedRtv} hlasov, {(int)countVote} potrebn˝ch)");
+                PrintToChatAll($"{player.PlayerName} spustil hlasovanie pre zmenu mapy.");
 
-                if (_votedRtv == (int)countVote)
+                if (_votedRtv >= 1)
                     VoteMap(true);
             }
             else if (isMatchLive || isKnifeRound) {
                 PrintToChat(player, $" {ChatColors.Gold}Nie je moûnÈ hlasovaù poËas z·pasu!");
                 return;
             }
-        }
-        void HandleNominate(CCSPlayerController player, ChatMenuOption option)
-        {
-            if (_selectedMap != null)
-            {
-                PrintToChat(player, "Hlasovanie uû je ukonËenÈ a nie je moûnÈ ho spustiù znova.");
-                return;
-            }
-
-            if (!_isVotingActive)
-            {
-                PrintToChat(player, "Hlasovanie v tomto momente nie je moûnÈ.");
-                return;
-            }
-
-            var indexToAdd = Array.IndexOf(_proposedMaps, null);
-
-            if (indexToAdd == -1)
-            {
-                PrintToChat(player, "Maxim·lne mnoûstvo m·p pre nomin·ciu.");
-                return;
-            }
-
-            foreach (var map in _proposedMaps)
-            {
-                if (map != option.Text) continue;
-                PrintToChat(player, "Mapa ktor˙ si zvolil uû bola nominovan·.");
-                return;
-            }
-
-            foreach (var playedMap in _playedMaps)
-            {
-                if (playedMap != option.Text) continue;
-                PrintToChat(player, "Mapa ktor˙ si zvolil bola pr·ve hran· a nie je moûnÈ ju nominovaù!");
-                return;
-            }
-
-            var user = _usersArray[player.Index]!;
-            if (!string.IsNullOrEmpty(user!.ProposedMaps))
-            {
-                var buffer = user.ProposedMaps;
-
-                for (int i = 0; i < _proposedMaps.Length; i++)
-                {
-                    if (_proposedMaps[i] == buffer)
-                        _proposedMaps[i] = option.Text;
-                }
-            }
-            else
-                _proposedMaps[indexToAdd] = option.Text;
-
-            user.ProposedMaps = option.Text;
-            PrintToChatAll($" Player '{player.PlayerName}' nominoval mapu '{option.Text}'");
         }
 
         private void VoteMap(bool forced)
@@ -201,7 +148,7 @@ namespace MatchZy
                 ChatMenus.OpenMenu(player, nominateMenu);
             }
 
-            AddTimer(20.0f, () => TimerVoteMap(forced));
+            AddTimer(35.0f, () => TimerVoteMap(forced));
         }
 
         private void TimerVoteMap(bool forced)
@@ -209,15 +156,10 @@ namespace MatchZy
             if (optionCounts.Count == 0 && forced)
             {
                 PrintToChatAll("Nebolo dosiahnutÈ potrebnÈ mnoûstvo hlasov, ost·va aktu·lna mapa!");
+                PrintToChatAll("Nebolo dosiahnutÈ potrebnÈ mnoûstvo hlasov, ost·va aktu·lna mapa!");
+                PrintToChatAll("Nebolo dosiahnutÈ potrebnÈ mnoûstvo hlasov, ost·va aktu·lna mapa!");
                 ResetData();
                 return;
-            }
-
-            if (_votedMap == 0 && !forced)
-            {
-                var random = Random.Shared;
-                _selectedMap = _proposedMaps[random.Next(_proposedMaps.Length)];
-                PrintToChatAll($"PoËas hlasovania bola zvolen· mapa {_selectedMap}.");
             }
 
             if (_selectedMap != null && !forced)
@@ -235,12 +177,13 @@ namespace MatchZy
             if (forced)
             {
                 PrintToChatAll($"PoËas hlasovania bola zvolen· mapa {_selectedMap}.");
+                PrintToChatAll($"PoËas hlasovania bola zvolen· mapa {_selectedMap}.");
+                PrintToChatAll($"PoËas hlasovania bola zvolen· mapa {_selectedMap}.");
 
                 AddTimer(5, ChangeMapRTV);
                 return;
             }
 
-            PrintToChatAll($"PoËas hlasovania bola zvolen· mapa {_selectedMap}.");
             if (!IsTimeLimit) return;
         }
         private void ChangeMapRTV()

@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.3.4)";
+        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.3.5)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -104,13 +104,6 @@ namespace MatchZy
             // RTV data
             _config = LoadConfig();
 
-            // Define the file path
-            string rtvmapsfileName = "MatchZy/rtvmaps.cfg";
-            string mapsFilePath = Path.Join(Server.GameDirectory + "/csgo/cfg", rtvmapsfileName);
-
-            if (!File.Exists(mapsFilePath))
-                File.WriteAllText(mapsFilePath, "");
-
             RegisterListener<Listeners.OnClientConnected>(slot =>
             {
                 _usersArray[slot + 1] = new Users { ProposedMaps = null!, VotedRtv = false };
@@ -142,23 +135,7 @@ namespace MatchZy
                 _usersArray[slot + 1] = null!;
             });
             AddCommand("css_rtv", "", CommandRtv);
-            AddCommand("css_nominate", "", ((player, info) =>
-            {
-                // Define the file path
-                string rtvmapsfileName = "MatchZy/rtvmaps.cfg";
-                string mapsPath = Path.Join(Server.GameDirectory + "/csgo/cfg", rtvmapsfileName);
-
-                var mapList = File.ReadAllLines(mapsPath);
-                var nominateMenu = new ChatMenu("Nominate");
-                foreach (var map in mapList)
-                {
-                    string mapName = map.Replace("ws:", "").Trim();
-                    nominateMenu.AddMenuOption(mapName, HandleNominate);
-                }
-
-                if (player == null) return;
-                ChatMenus.OpenMenu(player, nominateMenu);
-            }));// End of RTV data
+            // End of RTV data
 
             LoadAdmins();
 
@@ -181,6 +158,7 @@ namespace MatchZy
             }
 
             commandActions = new Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> {
+                { ".rtv", CommandRtv },
                 { ".ready", OnPlayerReady },
                 { ".rdy", OnPlayerReady },
                 { ".r", OnPlayerReady },
