@@ -201,7 +201,7 @@ namespace MatchZy
                 { ".clear", OnClearCommand },
                 { ".match", OnMatchCommand },
                 { ".uncoach", OnUnCoachCommand },
-                { ".exitprac", OnMatchCommand },
+                { ".exitprac", OnExitPracCommand },
                 { ".stop", OnStopCommand },
                 { ".help", OnHelpCommand },
                 { ".t", OnTCommand },
