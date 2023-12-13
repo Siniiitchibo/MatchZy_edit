@@ -11,18 +11,15 @@ namespace MatchZy
 
         private void InitPlayerDamageInfo()
         {
-            foreach (var key in playerData.Keys)
-            {
+            foreach (var key in playerData.Keys) {
                 if (!playerData[key].IsValid) continue;
                 if (playerData[key].IsBot) continue;
                 int attackerId = key;
-                foreach (var key2 in playerData.Keys)
-                {
+                foreach (var key2 in playerData.Keys) {
                     if (key == key2) continue;
                     if (!playerData[key2].IsValid || playerData[key2].IsBot) continue;
                     if (playerData[key].TeamNum == playerData[key2].TeamNum) continue;
-                    if (playerData[key].TeamNum == 2)
-                    {
+                    if (playerData[key].TeamNum == 2) {
                         if (playerData[key2].TeamNum != 3) continue;
                         int targetId = key2;
                         if (!playerDamageInfo.TryGetValue(attackerId, out var attackerInfo))
@@ -30,34 +27,32 @@ namespace MatchZy
 
                         if (!attackerInfo.TryGetValue(targetId, out var targetInfo))
                             attackerInfo[targetId] = targetInfo = new DamagePlayerInfo();
-                    }
-                    else if (playerData[key].TeamNum == 3)
-                    {
+                    } else if (playerData[key].TeamNum == 3) {
                         if (playerData[key2].TeamNum != 2) continue;
                         int targetId = key2;
                         if (!playerDamageInfo.TryGetValue(attackerId, out var attackerInfo))
                             playerDamageInfo[attackerId] = attackerInfo = new Dictionary<int, DamagePlayerInfo>();
 
                         if (!attackerInfo.TryGetValue(targetId, out var targetInfo))
-                            attackerInfo[targetId] = targetInfo = new DamagePlayerInfo();
+                            attackerInfo[targetId] = targetInfo = new DamagePlayerInfo(); 
                     }
                 }
             }
         }
 
-        public Dictionary<int, Dictionary<int, DamagePlayerInfo>> playerDamageInfo = new Dictionary<int, Dictionary<int, DamagePlayerInfo>>();
-        private void UpdatePlayerDamageInfo(EventPlayerHurt @event, int targetId)
-        {
-            int attackerId = (int)@event.Attacker.UserId!;
-            if (!playerDamageInfo.TryGetValue(attackerId, out var attackerInfo))
-                playerDamageInfo[attackerId] = attackerInfo = new Dictionary<int, DamagePlayerInfo>();
+		public Dictionary<int, Dictionary<int, DamagePlayerInfo>> playerDamageInfo = new Dictionary<int, Dictionary<int, DamagePlayerInfo>>();
+		private void UpdatePlayerDamageInfo(EventPlayerHurt @event, int targetId)
+		{
+			int attackerId = (int)@event.Attacker.UserId!;
+			if (!playerDamageInfo.TryGetValue(attackerId, out var attackerInfo))
+				playerDamageInfo[attackerId] = attackerInfo = new Dictionary<int, DamagePlayerInfo>();
 
-            if (!attackerInfo.TryGetValue(targetId, out var targetInfo))
-                attackerInfo[targetId] = targetInfo = new DamagePlayerInfo();
+			if (!attackerInfo.TryGetValue(targetId, out var targetInfo))
+				attackerInfo[targetId] = targetInfo = new DamagePlayerInfo();
 
-            targetInfo.DamageHP += @event.DmgHealth;
-            targetInfo.Hits++;
-        }
+			targetInfo.DamageHP += @event.DmgHealth;
+			targetInfo.Hits++;
+		}
 
         private void ShowDamageInfo()
         {
@@ -104,8 +99,8 @@ namespace MatchZy
                             int targetHP = targetController.PlayerPawn.Value.Health < 0 ? 0 : targetController.PlayerPawn.Value.Health;
                             string targetName = targetController.PlayerName;
 
-                            attackerController.PrintToChat($"===> {ChatColors.Lime}To: [{damageGiven} / {hitsGiven} hits] From: [{damageTaken} / {hitsTaken} hits] - {ChatColors.Gold}{targetName} - ({targetHP} HP){ChatColors.Default}");
-                            targetController.PrintToChat($"===> {ChatColors.Lime}To: [{damageTaken} / {hitsTaken} hits] From: [{damageGiven} / {hitsGiven} hits] - {ChatColors.Gold}{attackerName} - ({attackerHP} HP){ChatColors.Default}");
+                            attackerController.PrintToChat($"{chatPrefix} {ChatColors.Green}To: [{damageGiven} / {hitsGiven} hits] From: [{damageTaken} / {hitsTaken} hits] - {targetName} - ({targetHP} hp){ChatColors.Default}");
+                            targetController.PrintToChat($"{chatPrefix} {ChatColors.Green}To: [{damageTaken} / {hitsTaken} hits] From: [{damageGiven} / {hitsGiven} hits] - {attackerName} - ({attackerHP} hp){ChatColors.Default}");
                         }
 
                         // Mark this pair as processed to avoid duplicates.
@@ -122,9 +117,9 @@ namespace MatchZy
         }
     }
 
-    public class DamagePlayerInfo
-    {
-        public int DamageHP { get; set; } = 0;
-        public int Hits { get; set; } = 0;
-    }
+	public class DamagePlayerInfo
+	{
+		public int DamageHP { get; set; } = 0;
+		public int Hits { get; set; } = 0;
+	}
 }
