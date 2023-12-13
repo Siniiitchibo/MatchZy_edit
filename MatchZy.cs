@@ -1,9 +1,11 @@
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Core.Attributes;
-
+using CounterStrikeSharp.API.Modules.Cvars;
+using CounterStrikeSharp.API.Modules.Menu;
+using CounterStrikeSharp.API.Modules.Timers;
 
 namespace MatchZy
 {
@@ -12,14 +14,29 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.5.1-alpha";
-
+        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.3)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
-
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
         public string chatPrefix = $"[{ChatColors.Green}MatchZy{ChatColors.Default}]";
         public string adminChatPrefix = $"[{ChatColors.Red}ADMIN{ChatColors.Default}]";
+
+        // RTV data
+        private Config _config;
+        private Dictionary<string, int> optionCounts = new Dictionary<string, int>();
+        private Users?[] _usersArray = new Users?[65];
+
+        private int _votedRtv;
+        private int _votedMap;
+        private int _countRounds;
+        private float _timeLimit;
+
+        private string? _selectedMap;
+        private string[] _proposedMaps = new string[7];
+        private List<string> _playedMaps = new List<string>();
+
+        private bool _isVotingActive;
+        private bool IsTimeLimit;
 
         // Plugin start phase data
         public bool isPractice = false;
@@ -59,27 +76,71 @@ namespace MatchZy
         public CounterStrikeSharp.API.Modules.Timers.Timer? unreadyPlayerMessageTimer = null;
         public CounterStrikeSharp.API.Modules.Timers.Timer? sideSelectionMessageTimer = null;
         public CounterStrikeSharp.API.Modules.Timers.Timer? pausedStateTimer = null;
+        public CounterStrikeSharp.API.Modules.Timers.Timer? pracMessageTimer = null;
+        public CounterStrikeSharp.API.Modules.Timers.Timer? unreadyHintMessageTimmer = null;
+        public CounterStrikeSharp.API.Modules.Timers.Timer? restoreServerTimer = null;
+        public CounterStrikeSharp.API.Modules.Timers.Timer? _mapTimer = null;
+        public CounterStrikeSharp.API.Modules.Timers.Timer? roundKnifeStartMessageTimer = null;
 
-        // Each message is kept in chat display for ~13 seconds, hence setting default chat timer to 13 seconds.
+        // Each message is kept in chat display for ~13 seconds, hence setting default chat timer to 12 seconds.
         // Configurable using matchzy_chat_messages_timer_delay <seconds>
-        public int chatTimerDelay = 13;
+        public int chatTimerDelay = 12;
+        public int pracMessageDelay = 55;
+        public int unreadyHintMessageDelay = 3;
+        public int restoreServerDelay = 5;
+        public int roundKnifeStartMessageDelay = 11;
+        public int afterReadyDelay = 3;
 
         // Game Config
         public bool isKnifeRequired = true;
         public int minimumReadyRequired = 2; // Number of ready players required start the match. If set to 0, all connected players have to ready-up to start the match.
         public bool isWhitelistRequired = false;
-        public bool isSaveNadesAsGlobalEnabled = false;
-
         public bool isPlayOutEnabled = false;
+        public bool isSaveNadesAsGlobalEnabled = false;
 
         // User command - action map
         public Dictionary<string, Action<CCSPlayerController?, CommandInfo?>>? commandActions;
 
         // SQLite/MySQL Database 
         private Database database = new();
-    
+
         public override void Load(bool hotReload) {
-            
+            // RTV data
+            _config = LoadConfig();
+
+            RegisterListener<Listeners.OnClientConnected>(slot =>
+            {
+                _usersArray[slot + 1] = new Users { ProposedMaps = null!, VotedRtv = false };
+            });
+
+            RegisterListener<Listeners.OnMapStart>(name =>
+            {
+                ResetData();
+                _mapTimer = null;
+                _countRounds = 0;
+                _selectedMap = null;
+                if (_playedMaps.Count >= _config.RoundsBeforeNomination)
+                    _playedMaps.RemoveAt(0);
+
+                if (!_playedMaps.Contains(name))
+                    _playedMaps.Add(name);
+            });
+            RegisterListener<Listeners.OnClientDisconnectPost>(slot =>
+            {
+                if (_usersArray[slot + 1]!.VotedRtv)
+                    _votedRtv--;
+
+                for (var index = 0; index < _proposedMaps.Length; index++)
+                {
+                    if (_usersArray[slot + 1]!.ProposedMaps == _proposedMaps[index])
+                        _proposedMaps[index] = null!;
+                }
+
+                _usersArray[slot + 1] = null!;
+            });
+            AddCommand("css_rtv", "", CommandRtv);
+            // End of RTV data
+
             LoadAdmins();
 
             database.InitializeDatabase(ModuleDirectory);
@@ -101,7 +162,10 @@ namespace MatchZy
             }
 
             commandActions = new Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> {
+                { ".load", CommandLoad },
+                { ".rtv", CommandRtv },
                 { ".ready", OnPlayerReady },
+                { ".rdy", OnPlayerReady },
                 { ".r", OnPlayerReady },
                 { ".unready", OnPlayerUnReady },
                 { ".ur", OnPlayerUnReady },
@@ -138,7 +202,7 @@ namespace MatchZy
                 { ".clear", OnClearCommand },
                 { ".match", OnMatchCommand },
                 { ".uncoach", OnUnCoachCommand },
-                { ".exitprac", OnMatchCommand },
+                { ".exitprac", OnExitPracCommand },
                 { ".stop", OnStopCommand },
                 { ".help", OnHelpCommand },
                 { ".t", OnTCommand },
@@ -149,16 +213,16 @@ namespace MatchZy
             };
 
             RegisterEventHandler<EventPlayerConnectFull>((@event, info) => {
-                try 
+                try
                 {
                     Log($"[FULL CONNECT] Player ID: {@event.Userid.UserId}, Name: {@event.Userid.PlayerName} has connected!");
                     CCSPlayerController player = @event.Userid;
 
                     // Handling whitelisted players
-                    if(!player.IsBot || !player.IsHLTV) 
+                    if (!player.IsBot || !player.IsHLTV)
                     {
                         var steamId = player.SteamID;
-                
+
                         string whitelistfileName = "MatchZy/whitelist.cfg";
                         string whitelistPath = Path.Join(Server.GameDirectory + "/csgo/cfg", whitelistfileName);
                         string? directoryPath = Path.GetDirectoryName(whitelistPath);
@@ -169,10 +233,10 @@ namespace MatchZy
                                 Directory.CreateDirectory(directoryPath);
                             }
                         }
-                        if(!File.Exists(whitelistPath)) File.WriteAllLines(whitelistPath, new []{"Steamid1", "Steamid2"});
-                
+                        if (!File.Exists(whitelistPath)) File.WriteAllLines(whitelistPath, new[] { "Steamid1", "Steamid2" });
+
                         var whiteList = File.ReadAllLines(whitelistPath);
-            
+
                         if (isWhitelistRequired == true)
                         {
                             if (!whiteList.Contains(steamId.ToString()))
@@ -182,33 +246,49 @@ namespace MatchZy
                                 return HookResult.Continue;
                             }
                         }
-                        if (isMatchSetup || matchModeOnly) {
+                        if (isMatchSetup || matchModeOnly)
+                        {
                             CsTeam team = GetPlayerTeam(player);
                             Log($"[EventPlayerConnectFull] KICKING PLAYER STEAMID: {steamId}, Name: {player.PlayerName} (NOT ALLOWED!)");
-                            if (team == CsTeam.None) {
+                            if (team == CsTeam.None)
+                            {
                                 Server.ExecuteCommand($"kickid {(ushort)player.UserId}");
                                 return HookResult.Continue;
                             }
                         }
                     }
 
-                    if (player.UserId.HasValue) {
-                        
+                    player.PrintToChat($" {ChatColors.Gold}===>{ChatColors.Default}Vitaj na {chatPrefix} serveri!{ChatColors.Gold}<==={ChatColors.Default}");
+                    player.PrintToChat($"Spustenie hlasovania pre zmenu mapy {ChatColors.Green}!rtv");
+                    player.PrintToChat($"Pre spustenie hry napíš do chatu {ChatColors.Green}.ready {ChatColors.Default}alebo {ChatColors.Green}.rdy");
+                    player.PrintToChat($"Pre spustenie Practice módu napíš {ChatColors.Green}.prac");
+
+                    if (player.UserId.HasValue)
+                    {
+
                         playerData[player.UserId.Value] = player;
                         connectedPlayers++;
-                        if (readyAvailable && !matchStarted) {
+                        if (readyAvailable && !matchStarted)
+                        {
                             playerReadyStatus[player.UserId.Value] = false;
-                        } else {
+                        }
+                        else
+                        {
                             playerReadyStatus[player.UserId.Value] = true;
                         }
                     }
                     // May not be required, but just to be on safe side so that player data is properly updated in dictionaries
                     UpdatePlayersMap();
+                    HandleClanTags();
+                    UnreadyHintMessageStart();
 
-                    if (readyAvailable && !matchStarted) {
+                    if (readyAvailable && !matchStarted)
+                    {
                         // Start Warmup when first player connect and match is not started.
-                        if (GetRealPlayersCount() == 1) {
+                        if (GetRealPlayersCount() == 1)
+                        {
                             Log($"[FULL CONNECT] First player has connected, starting warmup!");
+                            Server.ExecuteCommand($"sv_hibernate_when_empty 0");
                             ExecUnpracCommands();
                             AutoStart();
                         }
@@ -227,24 +307,39 @@ namespace MatchZy
                 try
                 {
                     CCSPlayerController player = @event.Userid;
-                    if (player.UserId.HasValue) {
-                        if (playerReadyStatus.ContainsKey(player.UserId.Value)) {
+                    if (player.UserId.HasValue)
+                    {
+                        if (playerReadyStatus.ContainsKey(player.UserId.Value))
+                        {
                             playerReadyStatus.Remove(player.UserId.Value);
                             connectedPlayers--;
                         }
-                        if (playerData.ContainsKey(player.UserId.Value)) {
+                        if (playerData.ContainsKey(player.UserId.Value))
+                        {
                             playerData.Remove(player.UserId.Value);
                         }
-                        
-                        if (matchzyTeam1.coach == player) {
+
+                        if (matchzyTeam1.coach == player)
+                        {
                             matchzyTeam1.coach = null;
                             player.Clan = "";
-                        } else if (matchzyTeam2.coach == player) {
+                        }
+                        else if (matchzyTeam2.coach == player)
+                        {
                             matchzyTeam2.coach = null;
                             player.Clan = "";
                         }
+                        if (GetRealPlayersCount() == 0)
+                        {
+                            Server.ExecuteCommand($"sv_hibernate_when_empty 0");
+                            if (restoreServerTimer == null)
+                            {
+                                restoreServerTimer = AddTimer(restoreServerDelay, RestoreServerConfig);
+                            }
+                        }
                     }
-
+                    HandleClanTags();
+                    UnreadyHintMessageStart();
                     return HookResult.Continue;
                 }
                 catch (Exception e)
@@ -283,7 +378,7 @@ namespace MatchZy
 
             });
 
-           RegisterEventHandler<EventRoundStart>((@event, info) => {
+            RegisterEventHandler<EventRoundStart>((@event, info) => {
                 try
                 {
                     HandlePostRoundStartEvent(@event);
@@ -314,7 +409,8 @@ namespace MatchZy
             RegisterEventHandler<EventPlayerTeam>((@event, info) => {
                 CCSPlayerController player = @event.Userid;
 
-                if (matchzyTeam1.coach == player || matchzyTeam2.coach == player) {
+                if (matchzyTeam1.coach == player || matchzyTeam2.coach == player)
+                {
                     @event.Silent = true;
                     return HookResult.Changed;
                 }
@@ -354,22 +450,25 @@ namespace MatchZy
 
             AddCommandListener("jointeam", (player, info) =>
             {
-                if (isMatchSetup && player != null && player.IsValid) {
-                    if (int.TryParse(info.ArgByIndex(1), out int joiningTeam)) {
+                if (isMatchSetup && player != null && player.IsValid)
+                {
+                    if (int.TryParse(info.ArgByIndex(1), out int joiningTeam))
+                    {
                         int playerTeam = (int)GetPlayerTeam(player);
                         Log($"[jointeam] PLAYER TEAM DETERMINED: PlayerName: {player.PlayerName}, PlayerTeam: {playerTeam}");
-                        if (joiningTeam != playerTeam) {
+                        if (joiningTeam != playerTeam)
+                        {
                             return HookResult.Stop;
                         }
                     }
- 
+
                 }
                 return HookResult.Continue;
             });
 
             RegisterEventHandler<EventRoundEnd>((@event, info) => {
+                Log($"[EventRoundEnd PRE] Winner: {@event.Winner}, Reason: {@event.Reason}");
                 if (isKnifeRound) {
-                    Log($"[EventRoundEnd PRE] Winner: {@event.Winner}, Reason: {@event.Reason}");
                     @event.Winner = knifeWinner;
                     int finalEvent = 10;
                     if (knifeWinner == 3) {
@@ -386,8 +485,8 @@ namespace MatchZy
                 return HookResult.Continue;
             }, HookMode.Pre);
 
-           RegisterEventHandler<EventRoundEnd>((@event, info) => {
-                try 
+            RegisterEventHandler<EventRoundEnd>((@event, info) => {
+                try
                 {
                     if (!isMatchLive) return HookResult.Continue;
                     Log($"[EventRoundEnd POST] Winner: {@event.Winner}, Reason: {@event.Reason}");
@@ -402,21 +501,10 @@ namespace MatchZy
 
             }, HookMode.Post);
 
-            // RegisterEventHandler<EventMapShutdown>((@event, info) => {
-            //     Log($"[EventMapShutdown] Resetting match!");
-            //     ResetMatch();
-            //     return HookResult.Continue;
-            // });
-
-            RegisterListener<Listeners.OnMapStart>(mapName => { 
+            RegisterListener<Listeners.OnMapStart>(mapName => {
                 Log($"[Listeners.OnMapStart]");
                 if (isWarmup) StartWarmup();
             });
-
-            // RegisterListener<Listeners.OnMapEnd>(() => {
-            //     Log($"[Listeners.OnMapEnd] Resetting match!");
-            //     ResetMatch();
-            // });
 
             RegisterEventHandler<EventPlayerDeath>((@event, info) => {
                 // Setting money back to 16000 when a player dies in warmup
@@ -428,23 +516,25 @@ namespace MatchZy
             });
 
             RegisterEventHandler<EventPlayerHurt>((@event, info) =>
-			{
-				CCSPlayerController attacker = @event.Attacker;
+            {
+                CCSPlayerController attacker = @event.Attacker;
                 CCSPlayerController victim = @event.Userid;
 
                 if (isPractice)
                 {
-                    if (victim.IsBot) {
+                    if (victim.IsBot)
+                    {
                         int damage = @event.DmgHealth;
                         int postDamageHealth = @event.Health;
-                        @event.Attacker.PrintToChat($"{chatPrefix} {damage} damage to BOT {victim.PlayerName}({postDamageHealth} health)");
+                        @event.Attacker.PrintToChat($" ===> {ChatColors.Green}[{damage} DMG]{ChatColors.Default} to BOT {victim.PlayerName} {ChatColors.Green}({postDamageHealth} health){ChatColors.Default}");
                     }
                     return HookResult.Continue;
                 }
 
-				if (!attacker.IsValid || attacker.IsBot && !(@event.DmgHealth > 0 || @event.DmgArmor > 0))
-					return HookResult.Continue;
-                if (matchStarted) {
+                if (!attacker.IsValid || attacker.IsBot && !(@event.DmgHealth > 0 || @event.DmgArmor > 0))
+                    return HookResult.Continue;
+                if (matchStarted)
+                {
                     if (@event.Userid.TeamNum != attacker.TeamNum)
                     {
                         int targetId = (int)@event.Userid.UserId!;
@@ -453,8 +543,8 @@ namespace MatchZy
                     }
                 }
 
-				return HookResult.Continue;
-			});
+                return HookResult.Continue;
+            });
 
             RegisterEventHandler<EventPlayerChat>((@event, info) => {
 
@@ -510,7 +600,8 @@ namespace MatchZy
                     string command = ".asay";
                     string commandArg = originalMessage.Substring(command.Length).Trim();
 
-                    if (IsPlayerAdmin(player, "css_asay", "@css/chat")) {
+                    if (IsPlayerAdmin(player, "css_asay", "@css/chat"))
+                    {
                         if (commandArg != "") {
                             Server.PrintToChatAll($"{adminChatPrefix} {commandArg}");
                         } else {
@@ -520,35 +611,35 @@ namespace MatchZy
                         SendPlayerNotAdminMessage(player);
                     }
                 }
-                if (message.StartsWith(".savenade"))
-                {
+		if (message.StartsWith(".savenade")) {
                     string command = ".savenade";
                     string commandArg = message.Substring(command.Length).Trim();
-                    HandleSaveNadeCommand(player, commandArg);
+		    HandleSaveNadeCommand(player, commandArg);
+		    
                 }
-                if (message.StartsWith(".delnade"))
-                {
+		if (message.StartsWith(".delnade")) {
                     string command = ".delnade";
                     string commandArg = message.Substring(command.Length).Trim();
-                    HandleDeleteNadeCommand(player, commandArg);
+		    HandleDeleteNadeCommand(player, commandArg);
+		    
                 }
-                if (message.StartsWith(".importnade"))
-                {
+		if (message.StartsWith(".importnade")) {
                     string command = ".importnade";
                     string commandArg = message.Substring(command.Length).Trim();
-                    HandleImportNadeCommand(player, commandArg);
+		    HandleImportNadeCommand(player, commandArg);
+		    
                 }
-                if (message.StartsWith(".listnades"))
-                {
+		if (message.StartsWith(".listnades")) {
                     string command = ".listnades";
                     string commandArg = message.Substring(command.Length).Trim();
-                    HandleListNadesCommand(player, commandArg);
+		    HandleListNadesCommand(player, commandArg);
+		    
                 }
-                if (message.StartsWith(".loadnade"))
-                {
+		if (message.StartsWith(".loadnade")) {
                     string command = ".loadnade";
                     string commandArg = message.Substring(command.Length).Trim();
-                    HandleLoadNadeCommand(player, commandArg);
+		    HandleLoadNadeCommand(player, commandArg);
+		    
                 }
                 if (message.StartsWith(".spawn")) {
                     string command = ".spawn";
@@ -583,7 +674,8 @@ namespace MatchZy
                 if (originalMessage.StartsWith(".rcon")) {
                     string command = ".rcon";
                     string commandArg = originalMessage.Substring(command.Length).Trim();
-                    if (IsPlayerAdmin(player, "css_rcon", "@css/rcon")) {
+                    if (IsPlayerAdmin(player, "css_rcon", "@css/rcon"))
+                    {
                         Server.ExecuteCommand(commandArg);
                         ReplyToUserCommand(player, "Command sent successfully!");
                     } else {
@@ -605,12 +697,10 @@ namespace MatchZy
                 if (isPractice && @event.Userid.SteamID != @event.Attacker.SteamID)
                 {
                     double roundedBlindDuration = Math.Round(@event.BlindDuration, 2);
-                    @event.Attacker.PrintToChat($"{chatPrefix} Flashed {@event.Userid.PlayerName}. Blind time: {roundedBlindDuration} seconds");
+                    @event.Attacker.PrintToChat($" Flashed {@event.Userid.PlayerName}. Blind time: {roundedBlindDuration} seconds");
                 }
                 return HookResult.Continue;
             });
-
-            Console.WriteLine("[MatchZy LOADED] MatchZy by WD- (https://github.com/shobhit-pathak/)");
         }
     }
 }

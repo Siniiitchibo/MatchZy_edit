@@ -47,6 +47,8 @@ namespace MatchZy
             isWarmup = false;
             readyAvailable = false;
 
+            KillPhaseTimers();
+
             var absolutePath = Path.Join(Server.GameDirectory + "/csgo/cfg", practiceCfgPath);
 
             if (File.Exists(Path.Join(Server.GameDirectory + "/csgo/cfg", practiceCfgPath)))
@@ -62,11 +64,26 @@ namespace MatchZy
                 Server.ExecuteCommand("""mp_t_default_grenades "weapon_molotov weapon_hegrenade weapon_smokegrenade weapon_flashbang weapon_decoy"; mp_t_default_primary "weapon_ak47"; mp_warmup_online_enabled "true"; mp_warmup_pausetimer "1"; mp_warmup_start; bot_quota_mode fill; mp_solid_teammates 2; mp_autoteambalance false; mp_teammates_are_enemies false; buddha 1; buddha_ignore_bots 1; buddha_reset_hp 100;""");
             }
             GetSpawns();
-            Server.PrintToChatAll($"{chatPrefix} Practice mode loaded!");
-            Server.PrintToChatAll($"{chatPrefix} Available commands:");
-	        Server.PrintToChatAll($"{chatPrefix} \x10.spawn, .ctspawn, .tspawn, .bot, .nobots, .exitprac");
-	        Server.PrintToChatAll($"{chatPrefix} \x10.loadnade <name>, .savenade <name>, .importnade <code>, .listnades <optional filter>");
-            Server.PrintToChatAll($"{chatPrefix} \x10.listnades <optional filter>, .delnade <name>, .globalnades");
+            Server.PrintToChatAll($" {ChatColors.Gold}Practice mode spustený!");
+            Server.PrintToChatAll($" Dostupné príkazy:");
+            Server.PrintToChatAll($" {ChatColors.Green}.exitprac .spawn .ctspawn .tspawn .clear .god .t .ct .spec .fas");
+            Server.PrintToChatAll($" Príkazy pre botov:");
+            Server.PrintToChatAll($" {ChatColors.Green}.bot .crouchbot .boost .crouchboost .nobots");
+            Server.PrintToChatAll($" Nades lineup príkazy:");
+            Server.PrintToChatAll($" {ChatColors.Green}.listnades .loadnade <name> .savenade <názov popis> .delnade <name> .importnade <code>");
+            if (pracMessageTimer == null)
+            {
+                pracMessageTimer = AddTimer(pracMessageDelay, PracMessageStart, TimerFlags.REPEAT);
+            }
+        }
+
+        public void PracMessageStart()
+        {
+            if (isPractice)
+            {
+                Server.PrintToChatAll($" Pre zoznam príkazov napíš {ChatColors.Green}.help");
+                PrintWrappedLine(HudDestination.Center, "Pre ukonèenie Practice módu napíš .exitprac");
+            }
         }
 
         public void GetSpawns()
@@ -118,7 +135,7 @@ namespace MatchZy
                     spawnNumber -= 1;
                     if (spawnsData.ContainsKey(teamNum) && spawnsData[teamNum].Count <= spawnNumber) return;
                     player.PlayerPawn.Value.Teleport(spawnsData[teamNum][spawnNumber].PlayerPosition, spawnsData[teamNum][spawnNumber].PlayerAngle, new Vector(0, 0, 0));
-                    ReplyToUserCommand(player, $"Moved to spawn: {spawnNumber+1}/{spawnsData[teamNum].Count}");
+                    ReplyToUserCommand(player, $"Moved to spawn: {spawnNumber + 1}/{spawnsData[teamNum].Count}");
                 }
                 else
                 {
@@ -166,7 +183,7 @@ namespace MatchZy
 
                 // Get player info: steamid, pos, ang
                 string playerSteamID;
-                if(isSaveNadesAsGlobalEnabled == false)
+                if (isSaveNadesAsGlobalEnabled == false)
                 {
                     playerSteamID = player.SteamID.ToString();
                 }
@@ -178,6 +195,7 @@ namespace MatchZy
                 QAngle playerAngle = player.PlayerPawn.Value.EyeAngles;
                 Vector playerPos = player.Pawn.Value.CBodyComponent!.SceneNode.AbsOrigin;
                 string currentMapName = Server.MapName;
+                string playerName = player.PlayerName;
                 string nadeType = GetNadeType(player.PlayerPawn.Value.WeaponServices.ActiveWeapon.Value.DesignerName);
 
                 // Define the file path
@@ -219,7 +237,8 @@ namespace MatchZy
                         { "LineupAng", $"{playerAngle.X} {playerAngle.Y} {playerAngle.Z}" },
                         { "Desc", lineupDesc },
                         { "Map", currentMapName },
-                        { "Type", nadeType }
+                        { "Type", nadeType },
+                        { "Player", playerName }
                     };
 
                     // Serialize the updated dictionary back to JSON
@@ -230,8 +249,8 @@ namespace MatchZy
 
                     //Reply to user
                     ReplyToUserCommand(player, $" \x0DLineup \x06'{lineupName}' \x0Dsaved successfully!");
-					player.PrintToCenter($"Lineup '{lineupName}' saved successfully!");
-					Server.PrintToChatAll($"{chatPrefix} \x0D{player.PlayerName} Just saved a Lineup! Lineup Code: \x06{lineupName} {playerPos} {playerAngle}");
+                    player.PrintToCenter($"Lineup '{lineupName}' saved successfully!");
+                    Server.PrintToChatAll($"{chatPrefix} \x0D{player.PlayerName} Just saved a Lineup! Lineup Code: \x06{lineupName} {playerPos} {playerAngle}");
                 }
                 catch (JsonException ex)
                 {
@@ -252,7 +271,7 @@ namespace MatchZy
             {
                 // Grab player steamid
                 string playerSteamID;
-                if(isSaveNadesAsGlobalEnabled == false)
+                if (isSaveNadesAsGlobalEnabled == false)
                 {
                     playerSteamID = player.SteamID.ToString();
                 }
@@ -394,6 +413,7 @@ namespace MatchZy
             // Define the file path
             string savednadesfileName = "MatchZy/savednades.json";
             string savednadesPath = Path.Join(Server.GameDirectory + "/csgo/cfg", savednadesfileName);
+            string playerName = player.PlayerName;
 
             try
             {
@@ -406,10 +426,11 @@ namespace MatchZy
                 var savedNadesDict = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, Dictionary<string, string>>>>(existingJson)
                                     ?? new Dictionary<string, Dictionary<string, Dictionary<string, string>>>();
 
-                ReplyToUserCommand(player, $"\x0D-----All Saved Lineups for \x06{Server.MapName}\x0D-----");
+                ReplyToUserCommand(player, $"\x0D-----Všetky uložené granáty pre mapu \x06{Server.MapName}\x0D-----");
 
                 // List lineups for the specified player
                 ListLineups(player, "default", Server.MapName, savedNadesDict, nadeFilter);
+                ReplyToUserCommand(player, $"\x0D-----Všetky uložené granáty hráèa \x06{playerName}\x0D-----");
 
                 // List lineups for the current player
                 ListLineups(player, player.SteamID.ToString(), Server.MapName, savedNadesDict, nadeFilter);
@@ -558,44 +579,39 @@ namespace MatchZy
         public void OnGodCommand(CCSPlayerController? player, CommandInfo? command)
         {
             if (!isPractice || player == null) return;
-	    
-			int currentHP = player.PlayerPawn.Value.Health;
-			
-			if(currentHP > 100)
-			{
-				player.PlayerPawn.Value.Health = 100;
-				ReplyToUserCommand(player, $"God mode disabled!");
-				return;
-			}
-			else
-			{
-				player.PlayerPawn.Value.Health = 2147483647; // max 32bit int
-				ReplyToUserCommand(player, $"God mode enabled!");
-				return;
-			}
+
+            int currentHP = player.PlayerPawn.Value.Health;
+
+            if (currentHP > 100)
+            {
+                player.PlayerPawn.Value.Health = 100;
+                ReplyToUserCommand(player, $"God mode {ChatColors.Green}zakázaný!");
+                return;
+            }
+            else
+            {
+                player.PlayerPawn.Value.Health = 2147483647; // max 32bit int
+                ReplyToUserCommand(player, $"God mode {ChatColors.Green}povolený");
+                return;
+            }
         }
 
         [ConsoleCommand("css_prac", "Starts practice mode")]
         public void OnPracCommand(CCSPlayerController? player, CommandInfo? command)
         {
-            if (!IsPlayerAdmin(player, "css_prac", "@css/map", "@custom/prac")) {
-                SendPlayerNotAdminMessage(player);
+            if (matchStarted)
+            {
+                ReplyToUserCommand(player, "Practice Mode nemôže by spustený poèas aktívneho zápasu!");
                 return;
             }
 
-            if (matchStarted)
+            if (isPractice)
             {
-                ReplyToUserCommand(player, "Practice Mode cannot be started when a match has been started!");
+                StartMatchMode();
                 return;
             }
-	    
-			if (isPractice)
-				{
-					StartMatchMode();
-					return;
-				}
-	
-				StartPracticeMode();
+
+            StartPracticeMode();
         }
 
         [ConsoleCommand("css_spawn", "Teleport to provided spawn")]
@@ -707,7 +723,7 @@ namespace MatchZy
                     Server.ExecuteCommand("bot_join_team CT");
                     Server.ExecuteCommand("bot_add_ct");
                 }
-                
+
                 // Once bot is added, we teleport it to the requested position
                 AddTimer(0.1f, () => SpawnBot(player, crouch));
                 Server.ExecuteCommand("bot_stop 1");
@@ -722,7 +738,7 @@ namespace MatchZy
 
         private void SpawnBot(CCSPlayerController botOwner, bool crouch)
         {
-            try 
+            try
             {
                 var playerEntities = Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller");
                 bool unusedBotFound = false;
@@ -763,8 +779,9 @@ namespace MatchZy
                         unusedBotFound = true;
                     }
                 }
-                if (!unusedBotFound) {
-                    Server.PrintToChatAll($"{chatPrefix} Cannot add bots, the team is full! Use .nobots to remove the current bots.");
+                if (!unusedBotFound)
+                {
+                    Server.PrintToChatAll($" Nie je možné prida ïalších botov, tím je plný. Použi príkaz {ChatColors.Green}.nobots {ChatColors.Default}pre odstránenie aktuálnych botov.");
                 }
 
                 isSpawningBot = false;
@@ -853,9 +870,10 @@ namespace MatchZy
                             AddTimer(0.2f, () => player.PlayerPawn.Value.Bot.IsCrouching = true);
                         }
                         CCSPlayerController? botOwner = (CCSPlayerController)pracUsedBots[player.UserId.Value]["owner"];
-                        if (botOwner != null && botOwner.IsValid && botOwner.PlayerPawn != null && botOwner.PlayerPawn.IsValid) {
+                        if (botOwner != null && botOwner.IsValid && botOwner.PlayerPawn != null && botOwner.PlayerPawn.IsValid)
+                        {
                             AddTimer(0.2f, () => TemporarilyDisableCollisions(botOwner, player));
-                        } 
+                        }
                     }
                 }
                 else if (!isSpawningBot && !player.IsHLTV)
@@ -891,7 +909,8 @@ namespace MatchZy
 
             Dictionary<int, MoveType_t> preFastForwardMoveTypes = new();
 
-            foreach (var key in playerData.Keys) {
+            foreach (var key in playerData.Keys)
+            {
                 preFastForwardMoveTypes[key] = playerData[key].PlayerPawn.Value.MoveType;
                 playerData[key].PlayerPawn.Value.MoveType = MoveType_t.MOVETYPE_NONE;
             }
@@ -910,10 +929,12 @@ namespace MatchZy
             OnFFCommand(player, command);
         }
 
-        public void ResetFastForward(Dictionary<int, MoveType_t> preFastForwardMoveTypes) {
+        public void ResetFastForward(Dictionary<int, MoveType_t> preFastForwardMoveTypes)
+        {
             if (!isPractice) return;
             Server.ExecuteCommand("host_timescale 1");
-            foreach (var key in playerData.Keys) {
+            foreach (var key in playerData.Keys)
+            {
                 playerData[key].PlayerPawn.Value.MoveType = preFastForwardMoveTypes[key];
             }
         }
@@ -925,21 +946,24 @@ namespace MatchZy
         }
 
         [ConsoleCommand("css_t", "Switches team to Terrorist")]
-        public void OnTCommand(CCSPlayerController? player, CommandInfo? command) {
+        public void OnTCommand(CCSPlayerController? player, CommandInfo? command)
+        {
             if (!isPractice || player == null) return;
 
             SideSwitchCommand(player, CsTeam.Terrorist);
         }
 
         [ConsoleCommand("css_ct", "Switches team to Counter-Terrorist")]
-        public void OnCTCommand(CCSPlayerController? player, CommandInfo? command) {
+        public void OnCTCommand(CCSPlayerController? player, CommandInfo? command)
+        {
             if (!isPractice || player == null) return;
 
             SideSwitchCommand(player, CsTeam.CounterTerrorist);
         }
 
         [ConsoleCommand("css_spec", "Switches team to Spectator")]
-        public void OnSpecCommand(CCSPlayerController? player, CommandInfo? command) {
+        public void OnSpecCommand(CCSPlayerController? player, CommandInfo? command)
+        {
             if (!isPractice || player == null) return;
 
             SideSwitchCommand(player, CsTeam.Spectator);
@@ -947,26 +971,31 @@ namespace MatchZy
 
         [ConsoleCommand("css_fas", "Switches all other players to spectator")]
         [ConsoleCommand("css_watchme", "Switches all other players to spectator")]
-        public void OnFASCommand(CCSPlayerController? player, CommandInfo? command) {
+        public void OnFASCommand(CCSPlayerController? player, CommandInfo? command)
+        {
             if (!isPractice || player == null) return;
 
             SideSwitchCommand(player, CsTeam.None);
         }
 
         // CsTeam.None is a special value to mean force all other players to spectator
-        private void SideSwitchCommand(CCSPlayerController player, CsTeam team) {
-          if (team > CsTeam.None) {
-            if(player.TeamNum == (byte)CsTeam.Spectator) {
-              ReplyToUserCommand(player, "Switching to a team from spectator is currently broken, use the team menu.");
-              return;
+        private void SideSwitchCommand(CCSPlayerController player, CsTeam team)
+        {
+            if (team > CsTeam.None)
+            {
+                if (player.TeamNum == (byte)CsTeam.Spectator)
+                {
+                    ReplyToUserCommand(player, "Switching to a team from spectator is currently broken, use the team menu.");
+                    return;
+                }
+                player.ChangeTeam(team);
+                return;
             }
-            player.ChangeTeam(team);
-            return;
-          }
-          Utilities.GetPlayers().ForEach((x) => { 
-              if(x.IsValid && !x.IsBot && x.UserId != player.UserId) {
-                x.ChangeTeam(CsTeam.Spectator);
-              }
+            Utilities.GetPlayers().ForEach((x) => {
+                if (x.IsValid && !x.IsBot && x.UserId != player.UserId)
+                {
+                    x.ChangeTeam(CsTeam.Spectator);
+                }
             });
         }
 
@@ -990,7 +1019,8 @@ namespace MatchZy
             }
         }
 
-        public void ExecUnpracCommands() {
+        public void ExecUnpracCommands()
+        {
             Server.ExecuteCommand("sv_cheats false;sv_grenade_trajectory_prac_pipreview false;sv_grenade_trajectory_prac_trailtime 0; mp_ct_default_grenades \"\"; mp_ct_default_primary \"\"; mp_t_default_grenades\"\"; mp_t_default_primary\"\"; mp_teammates_are_enemies false;");
             Server.ExecuteCommand("mp_death_drop_breachcharge true; mp_death_drop_defuser true; mp_death_drop_taser true; mp_drop_knife_enable false; mp_death_drop_grenade 2; ammo_grenade_limit_total 4; mp_defuser_allocation 0; sv_infinite_ammo 0; mp_force_pick_time 15");
         }

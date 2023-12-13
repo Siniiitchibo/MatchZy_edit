@@ -20,10 +20,12 @@ namespace MatchZy
 
         public bool resetCvarsOnSeriesEnd = true;
 
-        public Team matchzyTeam1 = new() {
+        public Team matchzyTeam1 = new()
+        {
             teamName = "COUNTER-TERRORISTS"
         };
-        public Team matchzyTeam2 = new() {
+        public Team matchzyTeam2 = new()
+        {
             teamName = "TERRORISTS"
         };
 
@@ -43,7 +45,7 @@ namespace MatchZy
                 }
                 string fileName = command.ArgString;
                 string filePath = Path.Join(Server.GameDirectory + "/csgo", fileName);
-                if (!File.Exists(filePath)) 
+                if (!File.Exists(filePath))
                 {
                     Log($"[LoadMatch] Provided file does not exist! Usage: matchzy_loadmatch <filename>");
                     return;
@@ -124,15 +126,15 @@ namespace MatchZy
                         if (!int.TryParse(jsonData[field].ToString(), out numMaps))
                         {
                             return $"{field} should be an integer!";
-                            
+
                         }
                         if (field == "num_maps" && numMaps > jsonData["maplist"].ToObject<List<string>>().Count)
                         {
                             return $"{field} should be equal to or greater than maplist!";
                         }
-                        
+
                         break;
-                    
+
                     case "cvars":
                         if (jsonData[field].Type != JTokenType.Object)
                         {
@@ -147,7 +149,7 @@ namespace MatchZy
                         {
                             return $"{field} should be a JSON structure!";
                         }
-                        if (jsonData[field]["players"] == null || jsonData[field]["players"].Type != JTokenType.Object) 
+                        if (jsonData[field]["players"] == null || jsonData[field]["players"].Type != JTokenType.Object)
                         {
                             return $"{field} should have 'players' JSON!";
                         }
@@ -172,11 +174,13 @@ namespace MatchZy
                         string[] allowedValues = { "team1_ct", "team1_t", "team2_ct", "team2_t", "knife" };
                         bool allElementsValid = jsonData[field].All(element => allowedValues.Contains(element.ToString()));
 
-                        if (!allElementsValid) {
+                        if (!allElementsValid)
+                        {
                             return $"{field} should be \"team1_ct\", \"team1_t\", or \"knife\"!";
                         }
-                        
-                        if (jsonData[field].ToObject<List<string>>().Count < jsonData["num_maps"].Value<int>()) {
+
+                        if (jsonData[field].ToObject<List<string>>().Count < jsonData["num_maps"].Value<int>())
+                        {
                             return $"{field} should be equal to or greater than num_maps!";
                         }
                         break;
@@ -195,7 +199,7 @@ namespace MatchZy
 
         public void LoadMatchFromJSON(string jsonData)
         {
-            
+
             JObject jsonDataObject = JObject.Parse(jsonData);
 
             string validationError = ValidateMatchJsonStructure(jsonDataObject);
@@ -206,7 +210,7 @@ namespace MatchZy
                 return;
             }
 
-            if(jsonDataObject["matchid"] != null)
+            if (jsonDataObject["matchid"] != null)
             {
                 liveMatchId = (long)jsonDataObject["matchid"]!;
             }
@@ -218,7 +222,7 @@ namespace MatchZy
             matchzyTeam2.teamName = RemoveSpecialCharacters(team2["name"].ToString());
             matchzyTeam1.teamPlayers = team1["players"];
             matchzyTeam2.teamPlayers = team2["players"];
-            if(jsonDataObject["min_players_to_ready"] != null)
+            if (jsonDataObject["min_players_to_ready"] != null)
             {
                 minimumReadyRequired = jsonDataObject["min_players_to_ready"]!.Value<int>();
             }
@@ -249,11 +253,16 @@ namespace MatchZy
 
             string mapName = matchConfig.Maplist[0].ToString();
 
-            if (long.TryParse(mapName, out _)) {
+            if (long.TryParse(mapName, out _))
+            {
                 Server.ExecuteCommand($"host_workshop_map \"{mapName}\"");
-            } else if (Server.IsMapValid(mapName)) {
+            }
+            else if (Server.IsMapValid(mapName))
+            {
                 Server.ExecuteCommand($"changelevel \"{mapName}\"");
-            } else {
+            }
+            else
+            {
                 Log($"[LoadMatchFromJSON] Invalid map name: {mapName}, cannot setup match!");
                 ResetMatch(false);
                 return;
@@ -267,8 +276,8 @@ namespace MatchZy
 
             Log($"[LoadMatchFromJSON] Success with matchid: {liveMatchId}!");
         }
-
-        public void SetMapSides() {
+        public void SetMapSides()
+        {
             int mapNumber = matchConfig.CurrentMapNumber;
             if (matchConfig.MapSides[mapNumber] == "team1_ct" || matchConfig.MapSides[mapNumber] == "team2_t")
             {
@@ -322,35 +331,44 @@ namespace MatchZy
 
 
         [ConsoleCommand("css_team1", "Sets team name for team1")]
-        public void OnTeam1Command(CCSPlayerController? player, CommandInfo command) {
+        public void OnTeam1Command(CCSPlayerController? player, CommandInfo command)
+        {
             HandleTeamNameChangeCommand(player, command.ArgString, 1);
         }
 
         [ConsoleCommand("css_team2", "Sets team name for team1")]
-        public void OnTeam2Command(CCSPlayerController? player, CommandInfo command) {
+        public void OnTeam2Command(CCSPlayerController? player, CommandInfo command)
+        {
             HandleTeamNameChangeCommand(player, command.ArgString, 2);
         }
 
-        public void HandleTeamNameChangeCommand(CCSPlayerController? player, string teamName, int teamNum) {
-            if (!IsPlayerAdmin(player, "css_team", "@css/config")) {
+        public void HandleTeamNameChangeCommand(CCSPlayerController? player, string teamName, int teamNum)
+        {
+            if (!IsPlayerAdmin(player, "css_team", "@css/config"))
+            {
                 SendPlayerNotAdminMessage(player);
                 return;
             }
-            if (matchStarted) {
+            if (matchStarted)
+            {
                 ReplyToUserCommand(player, "Team names cannot be changed once the match is started!");
                 return;
             }
             teamName = RemoveSpecialCharacters(teamName.Trim());
-            if (teamName == "") {
+            if (teamName == "")
+            {
                 ReplyToUserCommand(player, $"Usage: !team{teamNum} <name>");
             }
 
-            if (teamNum == 1) {
+            if (teamNum == 1)
+            {
                 matchzyTeam1.teamName = teamName;
                 teamSides[matchzyTeam1] = "CT";
                 reverseTeamSides["CT"] = matchzyTeam1;
                 if (matchzyTeam1.coach != null) matchzyTeam1.coach.Clan = $"[{matchzyTeam1.teamName} COACH]";
-            } else if (teamNum == 2) {
+            }
+            else if (teamNum == 2)
+            {
                 matchzyTeam2.teamName = teamName;
                 teamSides[matchzyTeam2] = "TERRORIST";
                 reverseTeamSides["TERRORIST"] = matchzyTeam2;
@@ -359,7 +377,8 @@ namespace MatchZy
             Server.ExecuteCommand($"mp_teamname_{teamNum} {teamName};");
         }
 
-        public void SwapSidesInTeamData(bool swapTeams) {
+        public void SwapSidesInTeamData(bool swapTeams)
+        {
             // if (swapTeams) {
             //     // Here, we sync matchzyTeam1 and matchzyTeam2 with the actual team1 and team2
             //     (matchzyTeam2, matchzyTeam1) = (matchzyTeam1, matchzyTeam2);

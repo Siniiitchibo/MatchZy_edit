@@ -75,7 +75,7 @@ namespace MatchZy
 
         public async Task UploadDemoAsync(string? demoPath, long matchId, int mapNumber)
         {
-            if (demoPath == null || demoUploadURL == "") 
+            if (demoPath == null || demoUploadURL == "")
             {
                 Log($"[UploadDemoAsync] Not able to upload demo, either demoPath or demoUploadURL is not set. demoPath: {demoPath} demoUploadURL: {demoUploadURL}");
             }
