@@ -51,11 +51,13 @@ namespace MatchZy
 
                 user.VotedRtv = true;
                 _votedRtv++;
-                PrintToChatAll($"{player.PlayerName} spustil hlasovanie pre zmenu mapy.");
+                PrintToChatAll($" {player.PlayerName} {ChatColors.Green}chce spusti hlasovanie.");
+                PrintToChatAll($" {ChatColors.Green}(poèet hlasov: {ChatColors.Default}{_votedRtv}{ChatColors.Green} - potrebnıch: {ChatColors.Default}{(int)countVote}{ChatColors.Green})");
 
-                if (_votedRtv >= 1)
+                if (_votedRtv == (int)countVote)
                     VoteMap(true);
             }
+
             else if (isMatchLive || isKnifeRound) {
                 PrintToChat(player, $" {ChatColors.Gold}Nie je moné hlasova poèas zápasu.");
                 return;
