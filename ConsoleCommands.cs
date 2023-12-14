@@ -298,6 +298,7 @@ namespace MatchZy
             if (IsPlayerAdmin(player, "css_restart", "@css/config"))
             {
                 if (!isPractice) {
+                    Server.ExecuteCommand("execifexists MatchZy/config.cfg");
                     ResetMatch();
                 } else {
                     ReplyToUserCommand(player, "Practice mÛd je aktÌvny, nemÙûeö reötartovaù z·pas.");
