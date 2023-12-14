@@ -166,7 +166,7 @@ namespace MatchZy
             if (isMatchLive || isPractice || isWarmup || isKnifeRound)
             {
                 if (GetRealPlayersCount() == 0)
-                {
+                {                   
                     var currentMapName = Server.MapName;
                     Server.ExecuteCommand($"changelevel {currentMapName}");
                     ResetMatch();
@@ -345,17 +345,12 @@ namespace MatchZy
             {
                 unreadyHintMessageTimmer.Kill();
             }         
-            if (restoreServerTimer != null)
-            {
-                restoreServerTimer.Kill();
-            }
             
             unreadyPlayerMessageTimer = null;
             sideSelectionMessageTimer = null;
             pausedStateTimer = null;
             pracMessageTimer = null;
             unreadyHintMessageTimmer = null;
-            restoreServerTimer = null;
         }
         private (int alivePlayers, int totalHealth) GetAlivePlayers(int team)
         {
@@ -609,10 +604,12 @@ namespace MatchZy
             if (long.TryParse(mapName, out _))
             { // Check if mapName is a long for workshop map ids
                 Server.ExecuteCommand($"host_workshop_map \"{mapName}\"");
+                StartMatchMode();
             }
             else if (Server.IsMapValid(mapName))
             {
                 Server.ExecuteCommand($"changelevel \"{mapName}\"");
+                StartMatchMode();
             }
             else
             {

@@ -14,7 +14,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy";
-        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.4)";
+        public override string ModuleVersion => "0.5.1-alpha (siniii edit-0.4.5)";
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
         public override string ModuleDescription => "A plugin for running and managing CS2 practice/pugs/scrims/matches!";
 
@@ -78,7 +78,6 @@ namespace MatchZy
         public CounterStrikeSharp.API.Modules.Timers.Timer? pausedStateTimer = null;
         public CounterStrikeSharp.API.Modules.Timers.Timer? pracMessageTimer = null;
         public CounterStrikeSharp.API.Modules.Timers.Timer? unreadyHintMessageTimmer = null;
-        public CounterStrikeSharp.API.Modules.Timers.Timer? restoreServerTimer = null;
         public CounterStrikeSharp.API.Modules.Timers.Timer? _mapTimer = null;
         public CounterStrikeSharp.API.Modules.Timers.Timer? roundKnifeStartMessageTimer = null;
 
@@ -87,7 +86,6 @@ namespace MatchZy
         public int chatTimerDelay = 12;
         public int pracMessageDelay = 55;
         public int unreadyHintMessageDelay = 3;
-        public int restoreServerDelay = 5;
         public int roundKnifeStartMessageDelay = 11;
         public int afterReadyDelay = 3;
 
@@ -329,14 +327,6 @@ namespace MatchZy
                             matchzyTeam2.coach = null;
                             player.Clan = "";
                         }
-                        if (GetRealPlayersCount() == 0)
-                        {
-                            Server.ExecuteCommand($"sv_hibernate_when_empty 0");
-                            if (restoreServerTimer == null)
-                            {
-                                restoreServerTimer = AddTimer(restoreServerDelay, RestoreServerConfig);
-                            }
-                        }
                     }
                     HandleClanTags();
                     UnreadyHintMessageStart();
@@ -352,6 +342,11 @@ namespace MatchZy
             RegisterListener<Listeners.OnClientDisconnectPost>(playerSlot => { 
                // May not be required, but just to be on safe side so that player data is properly updated in dictionaries
                 UpdatePlayersMap();
+                if (GetRealPlayersCount() == 0)
+                {
+                    Server.ExecuteCommand($"sv_hibernate_when_empty 0");
+                    AddTimer(5, RestoreServerConfig);
+                }
             });
 
             RegisterEventHandler<EventCsWinPanelRound>((@event, info) => {

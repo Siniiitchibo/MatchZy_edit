@@ -195,6 +195,7 @@ namespace MatchZy
         }
         private void ChangeMapRTV()
         {
+            StartMatchMode();
             Server.ExecuteCommand(IsWsMaps(_selectedMap)
             ? $"ds_workshop_changelevel {_selectedMap}"
             : $"map {_selectedMap}");
