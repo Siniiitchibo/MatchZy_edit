@@ -2,11 +2,11 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Entities.Constants;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Text.Json;
-
 
 
 namespace MatchZy
@@ -22,16 +22,54 @@ namespace MatchZy
             PlayerPosition = new Vector(playerPosition.X, playerPosition.Y, playerPosition.Z);
             PlayerAngle = new QAngle(playerAngle.X, playerAngle.Y, playerAngle.Z);
         }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj == null || GetType() != obj.GetType())
+            {
+                return false;
+            }
+
+            Position otherPosition = (Position)obj;
+
+            return PlayerPosition.X == otherPosition.PlayerPosition.X &&
+                PlayerPosition.Y == otherPosition.PlayerPosition.Y &&
+                PlayerAngle.X == otherPosition.PlayerAngle.X &&
+                PlayerAngle.Y == otherPosition.PlayerAngle.Y &&
+                PlayerAngle.Z == otherPosition.PlayerAngle.Z;
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + PlayerPosition.X.GetHashCode();
+                hash = hash * 23 + PlayerPosition.Y.GetHashCode();
+                hash = hash * 23 + PlayerPosition.Z.GetHashCode();
+                hash = hash * 23 + PlayerAngle.X.GetHashCode();
+                hash = hash * 23 + PlayerAngle.Y.GetHashCode();
+                hash = hash * 23 + PlayerAngle.Z.GetHashCode();
+                return hash;
+            }
+        }
     }
 
     public partial class MatchZy
     {
+        int maxLastGrenadesSavedLimit = 512;
+        Dictionary<int, List<GrenadeThrownData>> lastGrenadesData = new();
+        Dictionary<int, Dictionary<string, GrenadeThrownData>> nadeSpecificLastGrenadeData = new();
+        Dictionary<int, DateTime> lastGrenadeThrownTime = new();
+        Dictionary<int, PlayerPracticeTimer> playerTimers = new();
+
         public Dictionary<byte, List<Position>> spawnsData = new Dictionary<byte, List<Position>> {
             { (byte)CsTeam.CounterTerrorist, new List<Position>() },
             { (byte)CsTeam.Terrorist, new List<Position>() }
         };
 
         public const string practiceCfgPath = "MatchZy/prac.cfg";
+        public const string dryrunCfgPath = "MatchZy/dryrun.cfg";
 
         // This map stores the bots which are being used in prac (probably spawned using .bot). Key is the userid of the bot.
         public Dictionary<int, Dictionary<string, object>> pracUsedBots = new Dictionary<int, Dictionary<string, object>>();
@@ -40,14 +78,17 @@ namespace MatchZy
 
         public bool isSpawningBot;
 
+        public bool isDryRun = false;
+
+        public List<int> noFlashList = new List<int>();
+
         public void StartPracticeMode()
         {
             if (matchStarted) return;
             isPractice = true;
+            isDryRun = false;
             isWarmup = false;
             readyAvailable = false;
-
-            KillPhaseTimers();
 
             var absolutePath = Path.Join(Server.GameDirectory + "/csgo/cfg", practiceCfgPath);
 
@@ -64,26 +105,13 @@ namespace MatchZy
                 Server.ExecuteCommand("""mp_t_default_grenades "weapon_molotov weapon_hegrenade weapon_smokegrenade weapon_flashbang weapon_decoy"; mp_t_default_primary "weapon_ak47"; mp_warmup_online_enabled "true"; mp_warmup_pausetimer "1"; mp_warmup_start; bot_quota_mode fill; mp_solid_teammates 2; mp_autoteambalance false; mp_teammates_are_enemies false; buddha 1; buddha_ignore_bots 1; buddha_reset_hp 100;""");
             }
             GetSpawns();
-            Server.PrintToChatAll($" {ChatColors.Gold}Practice mode spusten˝!");
-            Server.PrintToChatAll($" DostupnÈ prÌkazy:");
-            Server.PrintToChatAll($" {ChatColors.Green}.exitprac .spawn .ctspawn .tspawn .clear .god .t .ct .spec .fas");
-            Server.PrintToChatAll($" PrÌkazy pre botov:");
-            Server.PrintToChatAll($" {ChatColors.Green}.bot .crouchbot .boost .crouchboost .nobots");
-            Server.PrintToChatAll($" Nades lineup prÌkazy:");
-            Server.PrintToChatAll($" {ChatColors.Green}.listnades .loadnade <name> .savenade <n·zov popis> .delnade <name> .importnade <code>");
-            if (pracMessageTimer == null)
-            {
-                pracMessageTimer = AddTimer(pracMessageDelay, PracMessageStart, TimerFlags.REPEAT);
-            }
-        }
-
-        public void PracMessageStart()
-        {
-            if (isPractice)
-            {
-                Server.PrintToChatAll($" Pre zoznam prÌkazov napÌö {ChatColors.Green}.help");
-                PrintWrappedLine(HudDestination.Center, "Pre ukonËenie Practice mÛdu napÌö .exitprac");
-            }
+            PrintToAllChat($"Practice mode loaded!");
+            Server.PrintToChatAll($" {ChatColors.Green}Spawns: {ChatColors.Default}.spawn, .ctspawn, .tspawn, .bestspawn, .worstspawn");
+            Server.PrintToChatAll($" {ChatColors.Green}Bots: {ChatColors.Default}.bot, .nobots, .crouchbot, .boost, .crouchboost");
+            Server.PrintToChatAll($" {ChatColors.Green}Nades: {ChatColors.Default}.loadnade, .savenade, .importnade, .listnades");
+            Server.PrintToChatAll($" {ChatColors.Green}Nade Throw: {ChatColors.Default}.rethrow, .throwindex <index>, .lastindex, .delay <number>");
+            Server.PrintToChatAll($" {ChatColors.Green}Utility & Toggles: {ChatColors.Default}.clear, .fastforward, .last, .back, .solid, .impacts, .traj");
+            Server.PrintToChatAll($" {ChatColors.Green}Sides & Others: {ChatColors.Default}.ct, .t, .spec, .fas, .god, .dryrun, .break, .exitprac");
         }
 
         public void GetSpawns()
@@ -125,7 +153,7 @@ namespace MatchZy
 
         private void HandleSpawnCommand(CCSPlayerController? player, string commandArg, byte teamNum, string command)
         {
-            if (!isPractice || player == null) return;
+            if (!isPractice || !IsPlayerValid(player)) return;
             if (teamNum != 2 && teamNum != 3) return;
             if (!string.IsNullOrWhiteSpace(commandArg))
             {
@@ -134,18 +162,21 @@ namespace MatchZy
                     // Adjusting the spawnNumber according to the array index.
                     spawnNumber -= 1;
                     if (spawnsData.ContainsKey(teamNum) && spawnsData[teamNum].Count <= spawnNumber) return;
-                    player.PlayerPawn.Value.Teleport(spawnsData[teamNum][spawnNumber].PlayerPosition, spawnsData[teamNum][spawnNumber].PlayerAngle, new Vector(0, 0, 0));
-                    ReplyToUserCommand(player, $"Moved to spawn: {spawnNumber + 1}/{spawnsData[teamNum].Count}");
+                    player!.PlayerPawn.Value!.Teleport(spawnsData[teamNum][spawnNumber].PlayerPosition, spawnsData[teamNum][spawnNumber].PlayerAngle, new Vector(0, 0, 0));
+                    // ReplyToUserCommand(player, $"Moved to spawn: {spawnNumber+1}/{spawnsData[teamNum].Count}");
+                    ReplyToUserCommand(player, Localizer["matchzy.pm.movedtospawn", $"{spawnNumber + 1}/{spawnsData[teamNum].Count}"]);
                 }
                 else
                 {
-                    ReplyToUserCommand(player, $"Invalid value for {command} command. Please specify a valid non-negative number. Usage: !{command} <number>");
+                    // ReplyToUserCommand(player, $"Invalid value for {command} command. Please specify a valid non-negative number. Usage: !{command} <number>");
+                    ReplyToUserCommand(player, Localizer["matchzy.pm.negativenumber"]);
                     return;
                 }
             }
             else
             {
-                ReplyToUserCommand(player, $"Usage: !{command} <number>");
+                // ReplyToUserCommand(player, $"Usage: !{command} <number>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $"!{command} <number>"]);
             }
         }
 
@@ -172,7 +203,7 @@ namespace MatchZy
 
         private void HandleSaveNadeCommand(CCSPlayerController? player, string saveNadeName)
         {
-            if (!isPractice || player == null) return;
+            if (!isPractice || !IsPlayerValid(player)) return;
 
             if (!string.IsNullOrWhiteSpace(saveNadeName))
             {
@@ -183,20 +214,19 @@ namespace MatchZy
 
                 // Get player info: steamid, pos, ang
                 string playerSteamID;
-                if (isSaveNadesAsGlobalEnabled == false)
+                if(isSaveNadesAsGlobalEnabled == false)
                 {
-                    playerSteamID = player.SteamID.ToString();
+                    playerSteamID = player!.SteamID.ToString();
                 }
                 else
                 {
                     playerSteamID = "default";
                 }
 
-                QAngle playerAngle = player.PlayerPawn.Value.EyeAngles;
-                Vector playerPos = player.Pawn.Value.CBodyComponent!.SceneNode.AbsOrigin;
+                QAngle playerAngle = player!.PlayerPawn.Value!.EyeAngles;
+                Vector playerPos = player.Pawn.Value!.CBodyComponent!.SceneNode!.AbsOrigin;
                 string currentMapName = Server.MapName;
-                string playerName = player.PlayerName;
-                string nadeType = GetNadeType(player.PlayerPawn.Value.WeaponServices.ActiveWeapon.Value.DesignerName);
+                string nadeType = GetNadeType(player.PlayerPawn.Value.WeaponServices!.ActiveWeapon.Value!.DesignerName);
 
                 // Define the file path
                 string savednadesfileName = "MatchZy/savednades.json";
@@ -221,7 +251,8 @@ namespace MatchZy
                     if (savedNadesDict.ContainsKey(playerSteamID) && savedNadesDict[playerSteamID].ContainsKey(lineupName))
                     {
                         // Lineup already exists, reply to the user and return
-                        ReplyToUserCommand(player, $"Lineup already exists! Please use a different name or use .delnade <nade>");
+                        // ReplyToUserCommand(player, $"Lineup already exists! Please use a different name or use .delnade <nade>");
+                        ReplyToUserCommand(player, Localizer["matchzy.pm.lineupissaved"]);
                         return;
                     }
 
@@ -237,8 +268,7 @@ namespace MatchZy
                         { "LineupAng", $"{playerAngle.X} {playerAngle.Y} {playerAngle.Z}" },
                         { "Desc", lineupDesc },
                         { "Map", currentMapName },
-                        { "Type", nadeType },
-                        { "Player", playerName }
+                        { "Type", nadeType }
                     };
 
                     // Serialize the updated dictionary back to JSON
@@ -248,9 +278,12 @@ namespace MatchZy
                     File.WriteAllText(savednadesPath, updatedJson);
 
                     //Reply to user
-                    ReplyToUserCommand(player, $" \x0DLineup \x06'{lineupName}' \x0Dsaved successfully!");
-                    player.PrintToCenter($"Lineup '{lineupName}' saved successfully!");
-                    Server.PrintToChatAll($"{chatPrefix} \x0D{player.PlayerName} Just saved a Lineup! Lineup Code: \x06{lineupName} {playerPos} {playerAngle}");
+                    // ReplyToUserCommand(player, $"Lineup {ChatColors.Green}{lineupName}{ChatColors.Default} saved successfully!");
+                    ReplyToUserCommand(player, Localizer["matchzy.pm.lineupsavedsucces", lineupName]);
+                    // player.PrintToCenter($"Lineup {ChatColors.Green}{lineupName}{ChatColors.Default} saved successfully!");
+                    PrintToPlayerChat(player, Localizer["matchzy.pm.lineupsavedsucces", lineupName]);
+                    // Server.PrintToChatAll($"{chatPrefix} {ChatColors.LightBlue}{player.PlayerName}{ChatColors.Default} Just saved a Lineup! Lineup Code: {ChatColors.Green}{lineupName} {playerPos} {playerAngle}{ChatColors.Default}");
+                    PrintToAllChat(Localizer["matchzy.pm.playersavedlineup", player.PlayerName, $"{lineupName} {playerPos} {playerAngle}"]);
                 }
                 catch (JsonException ex)
                 {
@@ -259,7 +292,8 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"Usage: .savenade <name>");
+                // ReplyToUserCommand(player, $"Usage: .savenade <name>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $".savenade <name>"]);
             }
         }
 
@@ -271,7 +305,7 @@ namespace MatchZy
             {
                 // Grab player steamid
                 string playerSteamID;
-                if (isSaveNadesAsGlobalEnabled == false)
+                if(isSaveNadesAsGlobalEnabled == false)
                 {
                     playerSteamID = player.SteamID.ToString();
                 }
@@ -307,11 +341,13 @@ namespace MatchZy
                         // Write the updated JSON content back to the file
                         File.WriteAllText(savednadesPath, updatedJson);
 
-                        ReplyToUserCommand(player, $"Lineup '{saveNadeName}' deleted successfully.");
+                        // ReplyToUserCommand(player, $"Lineup '{saveNadeName}' deleted successfully.");
+                        ReplyToUserCommand(player, Localizer["matchzy.pm.lineupdeletesuccess", saveNadeName]);
                     }
                     else
                     {
-                        ReplyToUserCommand(player, $"Lineup '{saveNadeName}' not found!");
+                        // ReplyToUserCommand(player, $"Lineup '{saveNadeName}' not found!");
+                        ReplyToUserCommand(player, Localizer["matchzy.pm.lineupnotfound", saveNadeName]);
                     }
                 }
                 catch (JsonException ex)
@@ -321,7 +357,8 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"Usage: .delnade <name>");
+                // ReplyToUserCommand(player, $"Usage: .delnade <name>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $".delnade <name>"]);
             }
         }
 
@@ -364,7 +401,8 @@ namespace MatchZy
                         if (savedNadesDict.ContainsKey(playerSteamID) && savedNadesDict[playerSteamID].ContainsKey(lineupName))
                         {
                             // Lineup already exists, reply to the user and return
-                            ReplyToUserCommand(player, $"Lineup '{lineupName}' already exists! Please use a different name or use .delnade <nade>");
+                            // ReplyToUserCommand(player, $"Lineup '{lineupName}' already exists! Please use a different name or use .delnade <nade>");
+                            ReplyToUserCommand(player, Localizer["matchzy.pm.lineupalreadyexists", lineupName]);
                             return;
                         }
 
@@ -388,11 +426,13 @@ namespace MatchZy
                         // Write the updated JSON content back to the file
                         File.WriteAllText(savednadesPath, updatedJson);
 
-                        ReplyToUserCommand(player, $"Lineup '{lineupName}' imported and saved successfully.");
+                        // ReplyToUserCommand(player, $"Lineup '{lineupName}' imported and saved successfully.");
+                        ReplyToUserCommand(player, Localizer["matchzy.pm.lineupimportedsuccess"]);
                     }
                     else
                     {
-                        ReplyToUserCommand(player, $"Invalid code format. Please provide a valid code with name, pos, and ang.");
+                        // ReplyToUserCommand(player, $"Invalid code format. Please provide a valid code with name, pos, and ang.");
+                        ReplyToUserCommand(player, Localizer["matchzy.pm.lineupinvalidcode"]);
                     }
                 }
                 catch (JsonException ex)
@@ -402,7 +442,8 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"Usage: .importnade <code>");
+                // ReplyToUserCommand(player, $"Usage: .importnade <code>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $".importnade <code>"]);
             }
         }
 
@@ -413,7 +454,6 @@ namespace MatchZy
             // Define the file path
             string savednadesfileName = "MatchZy/savednades.json";
             string savednadesPath = Path.Join(Server.GameDirectory + "/csgo/cfg", savednadesfileName);
-            string playerName = player.PlayerName;
 
             try
             {
@@ -426,11 +466,10 @@ namespace MatchZy
                 var savedNadesDict = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, Dictionary<string, string>>>>(existingJson)
                                     ?? new Dictionary<string, Dictionary<string, Dictionary<string, string>>>();
 
-                ReplyToUserCommand(player, $"\x0D-----Vöetky uloûenÈ gran·ty pre mapu \x06{Server.MapName}\x0D-----");
+                ReplyToUserCommand(player, $"\x0D-----All Saved Lineups for \x06{Server.MapName}\x0D-----");
 
                 // List lineups for the specified player
                 ListLineups(player, "default", Server.MapName, savedNadesDict, nadeFilter);
-                ReplyToUserCommand(player, $"\x0D-----Vöetky uloûenÈ gran·ty hr·Ëa \x06{playerName}\x0D-----");
 
                 // List lineups for the current player
                 ListLineups(player, player.SteamID.ToString(), Server.MapName, savedNadesDict, nadeFilter);
@@ -459,14 +498,16 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"No saved lineups found for the specified SteamID: ({steamID}).");
+                // ReplyToUserCommand(player, $"No saved lineups found for the specified SteamID: ({steamID}).");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.nosavedlineups", steamID]);
+
             }
         }
 
 
         private void HandleLoadNadeCommand(CCSPlayerController? player, string loadNadeName)
         {
-            if (!isPractice || player == null) return;
+            if (!isPractice || player == null || !IsPlayerValid(player)) return;
 
             if (!string.IsNullOrWhiteSpace(loadNadeName))
             {
@@ -510,7 +551,7 @@ namespace MatchZy
                                 QAngle loadedPlayerAngle = new QAngle(float.Parse(angArray[0]), float.Parse(angArray[1]), float.Parse(angArray[2]));
 
                                 // Teleport player
-                                player.PlayerPawn.Value.Teleport(loadedPlayerPos, loadedPlayerAngle, new Vector(0, 0, 0));
+                                player!.PlayerPawn!.Value!.Teleport(loadedPlayerPos, loadedPlayerAngle, new Vector(0, 0, 0));
 
                                 // Change player inv slot
                                 switch (lineupInfo["Type"])
@@ -539,12 +580,14 @@ namespace MatchZy
                                 string lineupDesc = lineupInfo.ContainsKey("Desc") ? lineupInfo["Desc"] : null;
 
                                 // Print messages
-                                ReplyToUserCommand(player, $" \x0D Lineup \x06'{loadNadeName}' \x0Dloaded successfully!");
+                                // ReplyToUserCommand(player, $"Lineup {ChatColors.Green}{loadNadeName}{ChatColors.Default} loaded successfully!");
+                                ReplyToUserCommand(player, Localizer["matchzy.pm.lineuploadedsuccess", loadNadeName]);
 
                                 if (!string.IsNullOrWhiteSpace(lineupDesc))
                                 {
                                     player.PrintToCenter($"{lineupDesc}");
-                                    ReplyToUserCommand(player, $" \x0D Description: \x06'{lineupDesc}'");
+                                    // ReplyToUserCommand(player, $"Description: {ChatColors.Green}{lineupDesc}{ChatColors.Default}");
+                                    ReplyToUserCommand(player, Localizer["matchzy.pm.lineupdesc", lineupDesc]);
                                 }
 
                                 lineupFound = true;
@@ -552,7 +595,8 @@ namespace MatchZy
                             }
                             else
                             {
-                                ReplyToUserCommand(player, $"Nade '{loadNadeName}' not found on the current map!");
+                                // ReplyToUserCommand(player, $"Nade {ChatColor.Green}{loadNadeName}{ChatColor.Default} not found on the current map!");
+                                ReplyToUserCommand(player, Localizer["matchzy.pm.nadenotfoundonmap", loadNadeName]);
                                 lineupOnWrongMap = true;
                             }
                         }
@@ -561,7 +605,8 @@ namespace MatchZy
                     if (!lineupFound && !lineupOnWrongMap)
                     {
                         // Lineup not found
-                        ReplyToUserCommand(player, $"Nade '{loadNadeName}' not found!");
+                        // ReplyToUserCommand(player, $"Nade {ChatColor.Green}{loadNadeName}{ChatColor.Default} not found!");
+                        ReplyToUserCommand(player, Localizer["matchzy.pm.nadenotfound", loadNadeName]);
                     }
                 }
                 catch (JsonException ex)
@@ -571,47 +616,90 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"Nade not found! Usage: .loadnade <name>");
+                // ReplyToUserCommand(player, $"Nade not found! Usage: .loadnade <name>");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.loadnadenotfound"]);
             }
         }
 
         [ConsoleCommand("css_god", "Sets Infinite health for player")]
         public void OnGodCommand(CCSPlayerController? player, CommandInfo? command)
         {
-            if (!isPractice || player == null) return;
-
-            int currentHP = player.PlayerPawn.Value.Health;
-
-            if (currentHP > 100)
-            {
-                player.PlayerPawn.Value.Health = 100;
-                ReplyToUserCommand(player, $"God mode {ChatColors.Green}zak·zan˝!");
-                return;
-            }
-            else
-            {
-                player.PlayerPawn.Value.Health = 2147483647; // max 32bit int
-                ReplyToUserCommand(player, $"God mode {ChatColors.Green}povolen˝");
-                return;
-            }
+            if (!isPractice || player == null || !IsPlayerValid(player)) return;
+	    
+			int currentHP = player!.PlayerPawn!.Value!.Health;
+			
+			if(currentHP > 100)
+			{
+				player.PlayerPawn.Value.Health = 100;
+				// ReplyToUserCommand(player, $"God mode disabled!");
+                		ReplyToUserCommand(player, "God is " + Localizer["matchzy.cc.disabled"]);
+				return;
+			}
+			else
+			{
+				player.PlayerPawn.Value.Health = 2147483647; // max 32bit int
+				// ReplyToUserCommand(player, $"God mode enabled!");
+                		ReplyToUserCommand(player, "God is " + Localizer["matchzy.cc.enabled"]);
+				return;
+			}
         }
 
         [ConsoleCommand("css_prac", "Starts practice mode")]
+        [ConsoleCommand("css_tactics", "Starts practice mode")]
         public void OnPracCommand(CCSPlayerController? player, CommandInfo? command)
         {
+            /*
+            if (!IsPlayerAdmin(player, "css_prac", "@css/map", "@custom/prac")) {
+                SendPlayerNotAdminMessage(player);
+                return;
+            }
+            */
+
             if (matchStarted)
             {
-                ReplyToUserCommand(player, "Practice Mode nemÙûe byù spusten˝ poËas aktÌvneho z·pasu!");
+                // ReplyToUserCommand(player, "Practice Mode cannot be started when a match has been started!");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.pracmatchstarted"]);
                 return;
             }
-
-            if (isPractice)
-            {
-                StartMatchMode();
-                return;
-            }
-
+	    
+			// if (isPractice)
+            // {
+            //     StartMatchMode();
+            //     return;
+            // }
+	
             StartPracticeMode();
+        }
+
+        [ConsoleCommand("css_dry", "Starts dryrun in practice mode")]
+        [ConsoleCommand("css_dryrun", "Starts dryrun in practice mode")]
+        public void OnDryRunCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!IsPlayerAdmin(player, "css_prac", "@css/map", "@custom/prac")) {
+                SendPlayerNotAdminMessage(player);
+                return;
+            }
+            if (matchStarted)
+            {
+                // ReplyToUserCommand(player, "Dryrun cannot be started when a match has been started!");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.dryrunmatchstarted"]);
+                return;
+            }
+            if (!isPractice)
+            {
+                // ReplyToUserCommand(player, "Dryrun can only be started in practice mode!");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.dryrunnopractice"]);
+                return;
+            }
+
+            Server.ExecuteCommand("bot_kick");
+            pracUsedBots = new Dictionary<int, Dictionary<string, object>>();
+            noFlashList = new();
+
+            ExecUnpracCommands();
+            ExecDryRunCFG();
+
+            isDryRun = true;
         }
 
         [ConsoleCommand("css_spawn", "Teleport to provided spawn")]
@@ -629,7 +717,8 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"Usage: !spawn <round>");
+                // ReplyToUserCommand(player, $"Usage: !spawn <round>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $"!spawn <round>"]);
             }
         }
 
@@ -648,7 +737,8 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"Usage: !ctspawn <round>");
+                // ReplyToUserCommand(player, $"Usage: !ctspawn <round>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $"!ctspawn <round>"]);
             }
         }
 
@@ -667,7 +757,8 @@ namespace MatchZy
             }
             else
             {
-                ReplyToUserCommand(player, $"Usage: !ctspawn <round>");
+                // ReplyToUserCommand(player, $"Usage: !ctspawn <round>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $"!ctspawn <round>"]);
             }
         }
 
@@ -677,6 +768,7 @@ namespace MatchZy
             AddBot(player, false);
         }
 
+        [ConsoleCommand("css_cbot", "Spawns a crouched bot at the player's position")]
         [ConsoleCommand("css_crouchbot", "Spawns a crouched bot at the player's position")]
         public void OnCrouchBotCommand(CCSPlayerController? player, CommandInfo? command)
         {
@@ -686,6 +778,7 @@ namespace MatchZy
         [ConsoleCommand("css_boost", "Spawns a bot at the player's position and boost the player on it")]
         public void OnBoostBotCommand(CCSPlayerController? player, CommandInfo? command)
         {
+            if (!isPractice) return;
             AddBot(player, false);
             AddTimer(0.2f, () => ElevatePlayer(player));
         }
@@ -693,6 +786,7 @@ namespace MatchZy
         [ConsoleCommand("css_crouchboost", "Spawns a crouched bot at the player's position and boost the player on it")]
         public void OnCrouchBoostBotCommand(CCSPlayerController? player, CommandInfo? command)
         {
+            if (!isPractice) return;
             AddBot(player, true);
             AddTimer(0.2f, () => ElevatePlayer(player));
         }
@@ -711,8 +805,7 @@ namespace MatchZy
                 }
                 isSpawningBot = true;
                 // !bot/.bot command is made using a lot of workarounds, as there is no direct way to create a bot entity and spawn it in CSSharp
-                // Hence there can be some issues with this approach. This will be revamped when we will be able to create entities and manipulate them.
-                // Todo: Now its possible to create entities in CSSharp, hence this approach needs to be improved.
+                // Hence there can be some issues with this approach. This will be revamped when we will be able to fake clients.
                 if (player.TeamNum == (byte)CsTeam.CounterTerrorist)
                 {
                     Server.ExecuteCommand("bot_join_team T");
@@ -723,7 +816,7 @@ namespace MatchZy
                     Server.ExecuteCommand("bot_join_team CT");
                     Server.ExecuteCommand("bot_add_ct");
                 }
-
+                
                 // Once bot is added, we teleport it to the requested position
                 AddTimer(0.1f, () => SpawnBot(player, crouch));
                 Server.ExecuteCommand("bot_stop 1");
@@ -738,12 +831,14 @@ namespace MatchZy
 
         private void SpawnBot(CCSPlayerController botOwner, bool crouch)
         {
-            try
+            try 
             {
+                if (!IsPlayerValid(botOwner)) return;
                 var playerEntities = Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller");
                 bool unusedBotFound = false;
                 foreach (var tempPlayer in playerEntities)
                 {
+                    if (!IsPlayerValid(tempPlayer)) continue;
                     if (!tempPlayer.IsBot || tempPlayer.IsHLTV) continue;
                     if (tempPlayer.UserId.HasValue)
                     {
@@ -760,7 +855,7 @@ namespace MatchZy
                         }
                         pracUsedBots[tempPlayer.UserId.Value] = new Dictionary<string, object>();
 
-                        Position botOwnerPosition = new Position(botOwner.PlayerPawn.Value.CBodyComponent?.SceneNode?.AbsOrigin, botOwner.PlayerPawn.Value.CBodyComponent?.SceneNode?.AbsRotation);
+                        Position botOwnerPosition = new Position(botOwner.PlayerPawn.Value!.CBodyComponent?.SceneNode?.AbsOrigin!, botOwner.PlayerPawn.Value!.CBodyComponent?.SceneNode?.AbsRotation!);
                         // Add key-value pairs to the inner dictionary
                         pracUsedBots[tempPlayer.UserId.Value]["controller"] = tempPlayer;
                         pracUsedBots[tempPlayer.UserId.Value]["position"] = botOwnerPosition;
@@ -769,19 +864,19 @@ namespace MatchZy
 
                         if (crouch)
                         {
-                            CCSPlayer_MovementServices movementService = new(tempPlayer.PlayerPawn.Value.MovementServices!.Handle);
+                            CCSPlayer_MovementServices movementService = new(tempPlayer.PlayerPawn.Value!.MovementServices!.Handle);
                             AddTimer(0.1f, () => movementService.DuckAmount = 1);
-                            AddTimer(0.2f, () => tempPlayer.PlayerPawn.Value.Bot.IsCrouching = true);
+                            AddTimer(0.2f, () => tempPlayer.PlayerPawn.Value!.Bot!.IsCrouching = true);
                         }
 
-                        tempPlayer.PlayerPawn.Value.Teleport(botOwnerPosition.PlayerPosition, botOwnerPosition.PlayerAngle, new Vector(0, 0, 0));
+                        tempPlayer.PlayerPawn.Value!.Teleport(botOwnerPosition.PlayerPosition, botOwnerPosition.PlayerAngle, new Vector(0, 0, 0));
                         TemporarilyDisableCollisions(botOwner, tempPlayer);
                         unusedBotFound = true;
                     }
                 }
-                if (!unusedBotFound)
-                {
-                    Server.PrintToChatAll($" Nie je moûnÈ pridaù ÔalöÌch botov, tÌm je pln˝. Pouûi prÌkaz {ChatColors.Green}.nobots {ChatColors.Default}pre odstr·nenie aktu·lnych botov.");
+                if (!unusedBotFound) {
+                    // Server.PrintToChatAll($"{chatPrefix} Cannot add bots, the team is full! Use .nobots to remove the current bots.");
+                    PrintToAllChat(Localizer["matchzy.pm.botlimit"]);
                 }
 
                 isSpawningBot = false;
@@ -796,9 +891,9 @@ namespace MatchZy
         {
             Log($"[TemporarilyDisableCollisions] Disabling {p1.PlayerName} {p2.PlayerName}");
             // Reference collision code: https://github.com/Source2ZE/CS2Fixes/blob/f009e399ff23a81915e5a2b2afda20da2ba93ada/src/events.cpp#L150
-            p1.PlayerPawn.Value.Collision.CollisionAttribute.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_DEBRIS;
+            p1.PlayerPawn.Value!.Collision.CollisionAttribute.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_DEBRIS;
             p1.PlayerPawn.Value.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_DEBRIS;
-            p2.PlayerPawn.Value.Collision.CollisionAttribute.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_DEBRIS;
+            p2.PlayerPawn.Value!.Collision.CollisionAttribute.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_DEBRIS;
             p2.PlayerPawn.Value.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_DEBRIS;
             // TODO: call CollisionRulesChanged
             var p1p = p1.PlayerPawn;
@@ -852,28 +947,39 @@ namespace MatchZy
         public HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
         {
             var player = @event.Userid;
+            if (!IsPlayerValid(player)) return HookResult.Continue;
+
+            if (matchStarted && (matchzyTeam1.coach == player || matchzyTeam2.coach == player))
+            {
+                player!.InGameMoneyServices!.Account = 0;
+
+                Utilities.SetStateChanged(player, "CCSPlayerController", "m_pInGameMoneyServices");
+                player.PlayerPawn.Value!.MoveType = MoveType_t.MOVETYPE_NONE;
+                player.PlayerPawn.Value!.ActualMoveType = MoveType_t.MOVETYPE_NONE;
+                
+                return HookResult.Continue;
+            }
 
             // Respawing a bot where it was actually spawned during practice session
-            if (isPractice && player.IsValid && player.IsBot && player.UserId.HasValue)
+            if (isPractice && player!.IsValid && player.IsBot && player.UserId.HasValue)
             {
                 if (pracUsedBots.ContainsKey(player.UserId.Value))
                 {
                     if (pracUsedBots[player.UserId.Value]["position"] is Position botPosition)
                     {
-                        player.PlayerPawn.Value.Teleport(botPosition.PlayerPosition, botPosition.PlayerAngle, new Vector(0, 0, 0));
+                        player.PlayerPawn.Value?.Teleport(botPosition.PlayerPosition, botPosition.PlayerAngle, new Vector(0, 0, 0));
                         bool isCrouched = (bool)pracUsedBots[player.UserId.Value]["crouchstate"];
                         if (isCrouched)
                         {
-                            player.PlayerPawn.Value.Flags |= (uint)PlayerFlags.FL_DUCKING;
+                            player.PlayerPawn.Value!.Flags |= (uint)PlayerFlags.FL_DUCKING;
                             CCSPlayer_MovementServices movementService = new(player.PlayerPawn.Value.MovementServices!.Handle);
                             AddTimer(0.1f, () => movementService.DuckAmount = 1);
-                            AddTimer(0.2f, () => player.PlayerPawn.Value.Bot.IsCrouching = true);
+                            AddTimer(0.2f, () => player.PlayerPawn.Value.Bot!.IsCrouching = true);
                         }
                         CCSPlayerController? botOwner = (CCSPlayerController)pracUsedBots[player.UserId.Value]["owner"];
-                        if (botOwner != null && botOwner.IsValid && botOwner.PlayerPawn != null && botOwner.PlayerPawn.IsValid)
-                        {
+                        if (botOwner != null && botOwner.IsValid && botOwner.PlayerPawn != null && botOwner.PlayerPawn.IsValid) {
                             AddTimer(0.2f, () => TemporarilyDisableCollisions(botOwner, player));
-                        }
+                        } 
                     }
                 }
                 else if (!isSpawningBot && !player.IsHLTV)
@@ -889,7 +995,6 @@ namespace MatchZy
                     });
                 }
             }
-
 
             return HookResult.Continue;
         }
@@ -909,10 +1014,10 @@ namespace MatchZy
 
             Dictionary<int, MoveType_t> preFastForwardMoveTypes = new();
 
-            foreach (var key in playerData.Keys)
-            {
-                preFastForwardMoveTypes[key] = playerData[key].PlayerPawn.Value.MoveType;
-                playerData[key].PlayerPawn.Value.MoveType = MoveType_t.MOVETYPE_NONE;
+            foreach (var key in playerData.Keys) {
+                if(!IsPlayerValid(playerData[key])) continue;
+                preFastForwardMoveTypes[key] = playerData[key].PlayerPawn.Value!.MoveType;
+                playerData[key].PlayerPawn.Value!.MoveType = MoveType_t.MOVETYPE_NONE;
             }
 
             Server.PrintToChatAll($"{chatPrefix} Fastforwarding 20 seconds!");
@@ -929,13 +1034,12 @@ namespace MatchZy
             OnFFCommand(player, command);
         }
 
-        public void ResetFastForward(Dictionary<int, MoveType_t> preFastForwardMoveTypes)
-        {
+        public void ResetFastForward(Dictionary<int, MoveType_t> preFastForwardMoveTypes) {
             if (!isPractice) return;
             Server.ExecuteCommand("host_timescale 1");
-            foreach (var key in playerData.Keys)
-            {
-                playerData[key].PlayerPawn.Value.MoveType = preFastForwardMoveTypes[key];
+            foreach (var key in playerData.Keys) {
+                if(!IsPlayerValid(playerData[key])) continue;
+                playerData[key].PlayerPawn.Value!.MoveType = preFastForwardMoveTypes[key];
             }
         }
 
@@ -946,24 +1050,31 @@ namespace MatchZy
         }
 
         [ConsoleCommand("css_t", "Switches team to Terrorist")]
-        public void OnTCommand(CCSPlayerController? player, CommandInfo? command)
-        {
+        public void OnTCommand(CCSPlayerController? player, CommandInfo? command) {
+            if (player == null || player.UserId == null) return;
+            if (isVeto) {
+                HandleSideChoice(CsTeam.Terrorist, player.UserId.Value);
+                return;
+            }
             if (!isPractice || player == null) return;
 
             SideSwitchCommand(player, CsTeam.Terrorist);
         }
 
         [ConsoleCommand("css_ct", "Switches team to Counter-Terrorist")]
-        public void OnCTCommand(CCSPlayerController? player, CommandInfo? command)
-        {
-            if (!isPractice || player == null) return;
+        public void OnCTCommand(CCSPlayerController? player, CommandInfo? command) {
+            if (player == null || player.UserId == null) return;
+            if (isVeto) {
+                HandleSideChoice(CsTeam.CounterTerrorist, player.UserId.Value);
+                return;
+            }
+            if (!isPractice) return;
 
             SideSwitchCommand(player, CsTeam.CounterTerrorist);
         }
 
         [ConsoleCommand("css_spec", "Switches team to Spectator")]
-        public void OnSpecCommand(CCSPlayerController? player, CommandInfo? command)
-        {
+        public void OnSpecCommand(CCSPlayerController? player, CommandInfo? command) {
             if (!isPractice || player == null) return;
 
             SideSwitchCommand(player, CsTeam.Spectator);
@@ -971,31 +1082,65 @@ namespace MatchZy
 
         [ConsoleCommand("css_fas", "Switches all other players to spectator")]
         [ConsoleCommand("css_watchme", "Switches all other players to spectator")]
-        public void OnFASCommand(CCSPlayerController? player, CommandInfo? command)
-        {
+        public void OnFASCommand(CCSPlayerController? player, CommandInfo? command) {
             if (!isPractice || player == null) return;
 
             SideSwitchCommand(player, CsTeam.None);
         }
 
-        // CsTeam.None is a special value to mean force all other players to spectator
-        private void SideSwitchCommand(CCSPlayerController player, CsTeam team)
-        {
-            if (team > CsTeam.None)
+        [ConsoleCommand("css_noblind", "Disables flash effect for the player")]
+        [ConsoleCommand("css_noflash", "Disables flash effect for the player")]
+        public void OnNoFlashCommand(CCSPlayerController? player, CommandInfo? command) {
+            if (!isPractice || player == null || player.UserId == null) return;
+
+            int userId = player.UserId.Value;
+
+            if (noFlashList.Contains(userId))
             {
-                if (player.TeamNum == (byte)CsTeam.Spectator)
-                {
-                    ReplyToUserCommand(player, "Switching to a team from spectator is currently broken, use the team menu.");
-                    return;
-                }
-                player.ChangeTeam(team);
-                return;
+                noFlashList.Remove(userId);
+                ReplyToUserCommand(player, "Disabled noflash.");
+            } else {
+                noFlashList.Add(userId);
+                ReplyToUserCommand(player, "Enabled noflash. Use .noflash again to disable.");
+                Server.NextFrame(() => KillFlashEffect(player));
             }
-            Utilities.GetPlayers().ForEach((x) => {
-                if (x.IsValid && !x.IsBot && x.UserId != player.UserId)
-                {
-                    x.ChangeTeam(CsTeam.Spectator);
-                }
+
+        }
+
+        [ConsoleCommand("css_break", "Breaks the breakable entities")]
+        public void OnBreakCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice) return;
+            var entities = Utilities.FindAllEntitiesByDesignerName<CBreakable>("prop_dynamic")
+                .Concat(Utilities.FindAllEntitiesByDesignerName<CBreakable>("func_breakable"));
+            foreach (var entity in entities)
+            {
+                entity.AcceptInput("Break");
+            }
+        }
+
+        public void KillFlashEffect(CCSPlayerController player) {
+            var playerPawn = player.PlayerPawn.Value;
+            if (playerPawn == null) return;
+            Log($"[KillFlashEffect] Killing flash effect for player: {player.PlayerName}");
+            playerPawn.FlashMaxAlpha = 0.5f;
+        }
+
+        // CsTeam.None is a special value to mean force all other players to spectator
+        private void SideSwitchCommand(CCSPlayerController player, CsTeam team) {
+          if (team > CsTeam.None) {
+            if(player.TeamNum == (byte)CsTeam.Spectator) {
+              // ReplyToUserCommand(player, "Switching to a team from spectator is currently broken, use the team menu.");
+              ReplyToUserCommand(player, Localizer["matchzy.pm.spectatorbroken"]);
+              return;
+            }
+            player.ChangeTeam(team);
+            return;
+          }
+          Utilities.GetPlayers().ForEach((x) => { 
+              if(x.IsValid && !x.IsBot && x.UserId != player.UserId) {
+                x.ChangeTeam(CsTeam.Spectator);
+              }
             });
         }
 
@@ -1019,11 +1164,480 @@ namespace MatchZy
             }
         }
 
-        public void ExecUnpracCommands()
+        public void ExecDryRunCFG()
         {
+            var absolutePath = Path.Join(Server.GameDirectory + "/csgo/cfg", dryrunCfgPath);
+    
+            // We try to find the CFG in the cfg folder, if it is not there then we execute the default CFG.
+            if (File.Exists(absolutePath)) {
+                Log($"[ExecDryRunCFG] Starting Dryrun! Executing Dryrun CFG from {dryrunCfgPath}");
+                Server.ExecuteCommand($"exec {dryrunCfgPath}");
+                Server.ExecuteCommand("mp_restartgame 1;mp_warmup_end;");
+            } else {
+                Log($"[ExecDryRunCFG] Starting Dryrun! Dryrun CFG not found in {absolutePath}, using default CFG!");
+                Server.ExecuteCommand("ammo_grenade_limit_default 1;ammo_grenade_limit_flashbang 2;ammo_grenade_limit_total 4;bot_quota 0;cash_player_bomb_defused 300;cash_player_bomb_planted 300;cash_player_damage_hostage -30;cash_player_interact_with_hostage 300;cash_player_killed_enemy_default 300;cash_player_killed_enemy_factor 1;cash_player_killed_hostage -1000;cash_player_killed_teammate -300;cash_player_rescued_hostage 1000;cash_team_elimination_bomb_map 3250;cash_team_elimination_hostage_map_ct 3000;cash_team_elimination_hostage_map_t 3000;cash_team_hostage_alive 0;cash_team_hostage_interaction 600;cash_team_loser_bonus 1400;cash_team_loser_bonus_consecutive_rounds 500;cash_team_planted_bomb_but_defused 800;cash_team_rescued_hostage 600;cash_team_terrorist_win_bomb 3500;cash_team_win_by_defusing_bomb 3500;");
+                Server.ExecuteCommand("cash_team_win_by_hostage_rescue 2900;cash_team_win_by_time_running_out_bomb 3250;cash_team_win_by_time_running_out_hostage 3250;ff_damage_reduction_bullets 0.33;ff_damage_reduction_grenade 0.85;ff_damage_reduction_grenade_self 1;ff_damage_reduction_other 0.4;mp_afterroundmoney 0;mp_autokick 0;mp_autoteambalance 0;mp_backup_restore_load_autopause 1;mp_backup_round_auto 1;mp_buy_anywhere 0;mp_buy_during_immunity 0;mp_buytime 20;mp_c4timer 40;mp_ct_default_melee weapon_knife;mp_ct_default_primary \"\";mp_ct_default_secondary weapon_hkp2000;mp_death_drop_defuser 1;mp_death_drop_grenade 2;mp_death_drop_gun 1;mp_defuser_allocation 0;mp_display_kill_assists 1;mp_endmatch_votenextmap 0;mp_forcecamera 1;mp_free_armor 0;mp_freezetime 6;mp_friendlyfire 1;mp_give_player_c4 1;mp_halftime 1;mp_halftime_duration 15;mp_halftime_pausetimer 0;mp_ignore_round_win_conditions 0;mp_limitteams 0;mp_match_can_clinch 1;mp_match_end_restart 0;mp_maxmoney 16000;mp_maxrounds 24;mp_molotovusedelay 0;mp_overtime_enable 1;mp_overtime_halftime_pausetimer 0;mp_overtime_maxrounds 6;mp_overtime_startmoney 10000;mp_playercashawards 1;mp_randomspawn 0;mp_respawn_immunitytime 0;mp_respawn_on_death_ct 0;mp_respawn_on_death_t 0;mp_round_restart_delay 5;mp_roundtime 1.92;mp_roundtime_defuse 1.92;mp_roundtime_hostage 1.92;mp_solid_teammates 1;mp_starting_losses 1;mp_startmoney 16000;mp_t_default_melee weapon_knife;mp_t_default_primary \"\";mp_t_default_secondary weapon_glock;mp_teamcashawards 1;mp_timelimit 0;mp_weapons_allow_map_placed 1;mp_weapons_allow_zeus 1;mp_weapons_glow_on_ground 0;mp_win_panel_display_time 3;occlusion_test_async 0;spec_freeze_deathanim_time 0;spec_freeze_panel_extended_time 0;spec_freeze_time 2;spec_freeze_time_lock 2;spec_replay_enable 0;sv_allow_votes 1;sv_auto_full_alltalk_during_warmup_half_end 0;sv_coaching_enabled 1;sv_competitive_official_5v5 1;sv_damage_print_enable 0;sv_deadtalk 1;sv_hibernate_postgame_delay 300;sv_holiday_mode 0;sv_ignoregrenaderadio 0;sv_infinite_ammo 0;sv_occlude_players 1;sv_talk_enemy_dead 0;sv_talk_enemy_living 0;sv_voiceenable 1;tv_relayvoice 1;mp_team_timeout_max 4;mp_team_timeout_time 30;sv_vote_command_delay 0;cash_team_bonus_shorthanded 0;cash_team_loser_bonus_shorthanded 0;mp_spectators_max 20;mp_team_intro_time 0;mp_restartgame 3;mp_warmup_end;");
+            }
+        }
+
+        public void ExecUnpracCommands() {
             Server.ExecuteCommand("sv_cheats false;sv_grenade_trajectory_prac_pipreview false;sv_grenade_trajectory_prac_trailtime 0; mp_ct_default_grenades \"\"; mp_ct_default_primary \"\"; mp_t_default_grenades\"\"; mp_t_default_primary\"\"; mp_teammates_are_enemies false;");
             Server.ExecuteCommand("mp_death_drop_breachcharge true; mp_death_drop_defuser true; mp_death_drop_taser true; mp_drop_knife_enable false; mp_death_drop_grenade 2; ammo_grenade_limit_total 4; mp_defuser_allocation 0; sv_infinite_ammo 0; mp_force_pick_time 15");
         }
 
+        public bool IsValidPositionForLastGrenade(CCSPlayerController player, int position)
+        {
+            int userId = player.UserId!.Value;
+            if (!lastGrenadesData.ContainsKey(userId) || lastGrenadesData[userId].Count <= 0)
+            {
+                // PrintToPlayerChat(player, $"You have not thrown any nade yet!");
+                PrintToPlayerChat(player, Localizer["matchzy.pm.nothrownnades"]);
+                return false;
+            }
+
+            if (lastGrenadesData[userId].Count < position)
+            {
+                // PrintToPlayerChat(player, $"Your grenade history only goes from 1 to {lastGrenadesData[userId].Count}!");
+                PrintToPlayerChat(player, Localizer["matchzy.pm.grenadehistory", $"{lastGrenadesData[userId].Count}"]);
+                return false;
+            }
+
+            return true;
+        }
+
+        public void RethrowSpecificNade(CCSPlayerController player, string nadeType)
+        {
+            if (!isPractice || !player.UserId.HasValue) return;
+            int userId = player.UserId.Value;
+            if (!nadeSpecificLastGrenadeData.ContainsKey(userId) || !nadeSpecificLastGrenadeData[userId].ContainsKey(nadeType))
+            {
+                // PrintToPlayerChat(player, $"You have not thrown any {nadeType} yet!");
+                PrintToPlayerChat(player, Localizer["matchzy.pm.nothrownnadestype", nadeType]);
+                return;
+            }
+            GrenadeThrownData grenadeThrown = nadeSpecificLastGrenadeData[userId][nadeType];
+            AddTimer(grenadeThrown.Delay, () => grenadeThrown.Throw(player));
+        }
+
+        public void HandleBackCommand(CCSPlayerController player, string number)
+        {
+            if (!isPractice || player == null || !player.UserId.HasValue) return;
+            int userId = player.UserId.Value;
+            if (!string.IsNullOrWhiteSpace(number))
+            {
+                if (int.TryParse(number, out int positionNumber) && positionNumber >= 1)
+                {
+                    if (IsValidPositionForLastGrenade(player, positionNumber))
+                    {
+                        positionNumber -= 1;
+                        lastGrenadesData[userId][positionNumber].LoadPosition(player);
+                        // PrintToPlayerChat(player, $"Teleported to grenade of history position: {positionNumber+1}/{lastGrenadesData[userId].Count}");
+                        PrintToPlayerChat(player, Localizer["matchzy.pm.tptogrenade", $"{positionNumber + 1}/{lastGrenadesData[userId].Count}"]);
+                    }
+                }
+                else
+                {
+                    // PrintToPlayerChat(player, $"Invalid value for !back command. Please specify a valid non-negative number. Usage: !back <number>");
+                    PrintToPlayerChat(player, Localizer["matchzy.pm.backinvalidvalue"]);
+                    return;
+                }
+            }
+            else
+            {
+                int thrownCount = lastGrenadesData.ContainsKey(userId) ? lastGrenadesData[userId].Count : 0;
+                // ReplyToUserCommand(player, $"Usage: !back <number> (You've thrown {thrownCount} grenades till now)");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.backtonumber", thrownCount]);
+            }
+        }
+
+        public void HandleThrowIndexCommand(CCSPlayerController player, string argString)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            int userId = player!.UserId!.Value;
+
+            if (string.IsNullOrEmpty(argString))
+            {
+                int thrownCount = lastGrenadesData.ContainsKey(userId) ? lastGrenadesData[userId].Count : 0;
+                // ReplyToUserCommand(player, $"Usage: !throwindex <number> (You've thrown {thrownCount} grenades till now)");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.throwindextonumber", thrownCount]);
+                return;
+            }
+
+            string[] argsList = argString.Split();
+
+            foreach (string arg in argsList)
+            {
+                if (int.TryParse(arg, out int positionNumber) && positionNumber >= 1)
+                {
+                    if (IsValidPositionForLastGrenade(player, positionNumber))
+                    {
+                        positionNumber -= 1;
+                        GrenadeThrownData grenadeThrown = lastGrenadesData[userId][positionNumber];
+                        AddTimer(grenadeThrown.Delay, () => grenadeThrown.Throw(player));
+                        // PrintToPlayerChat(player, $"Throwing grenade of history position: {positionNumber+1}/{lastGrenadesData[userId].Count}");
+                        PrintToPlayerChat(player, Localizer["matchzy.pm.throwgrenadehistory", $"{positionNumber + 1}/{lastGrenadesData[userId].Count}"]);
+                    }
+                }
+                else
+                {
+                    // PrintToPlayerChat(player, $"'{arg}' is not a valid non-negative number for !throwindex command.");
+                    PrintToPlayerChat(player, Localizer["matchzy.pm.backnegativenumber", arg]);
+                }
+            }
+        }
+
+        public void HandleDelayCommand(CCSPlayerController player, string delay)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+
+            if (!isPractice || player == null || !player.UserId.HasValue) return;
+            int userId = player.UserId.Value;
+            if (string.IsNullOrWhiteSpace(delay))
+            {
+                // ReplyToUserCommand(player, $"Usage: !delay <delay_in_seconds>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $"!delay <delay_in_seconds>"]);
+                return;
+            }
+            
+            if (float.TryParse(delay, out float delayInSeconds) && delayInSeconds > 0)
+            {
+                if (IsValidPositionForLastGrenade(player, 0))
+                {
+                    lastGrenadesData[userId].Last().Delay = delayInSeconds;
+                    // PrintToPlayerChat(player, $"Delay of {delayInSeconds:0.00}s set for grenade of index: {lastGrenadesData[userId].Count}.");
+                    PrintToPlayerChat(player, Localizer["matchzy.pm.delaygrenade", $"{delayInSeconds:0.00}", $"{lastGrenadesData[userId].Count}"]);
+                }
+            }
+            else
+            {
+                // PrintToPlayerChat(player, $"Delay of {delayInSeconds:0.00}s set for grenade of index: {lastGrenadesData[userId].Count}.);
+                PrintToPlayerChat(player, Localizer["matchzy.pm.delayvalidnumber", $"{delayInSeconds:0.00}", $"{lastGrenadesData[userId].Count}"]);
+                return;
+            }
+        }
+
+        public void DisplayPracticeTimerCenter(int userId)
+        {
+            if (!playerData.ContainsKey(userId) || !playerTimers.ContainsKey(userId)) return;
+            if (!IsPlayerValid(playerData[userId])) return;
+            playerTimers[userId].DisplayTimerCenter(playerData[userId]);
+        }
+
+        [ConsoleCommand("css_throw", "Throws the last thrown grenade")]
+        [ConsoleCommand("css_rethrow", "Throws the last thrown grenade")]
+        public void OnRethrowCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+
+            if (!isPractice || player == null || !player.UserId.HasValue) return;
+            int userId = player.UserId.Value;
+            if (!lastGrenadesData.ContainsKey(userId) || lastGrenadesData[userId].Count <= 0)
+            {
+                // PrintToPlayerChat(player, $"You have not thrown any nade yet!");
+                PrintToPlayerChat(player, Localizer["matchzy.pm.notthrownnade"]);
+                return;
+            }
+            GrenadeThrownData lastGrenade = lastGrenadesData[userId].Last();
+            AddTimer(lastGrenade.Delay, () => lastGrenade.Throw(player));
+        }
+
+        [ConsoleCommand("css_throwsmoke", "Throws the last thrown smoke")]
+        [ConsoleCommand("css_rethrowsmoke", "Throws the last thrown smoke")]
+        public void OnRethrowSmokeCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null) return;
+            RethrowSpecificNade(player, "smoke");
+        }
+
+        [ConsoleCommand("css_throwflash", "Throws the last thrown flash")]
+        [ConsoleCommand("css_rethrowflash", "Throws the last thrown flash")]
+        public void OnRethrowFlashCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null) return;
+            RethrowSpecificNade(player, "flash");
+        }
+
+        [ConsoleCommand("css_throwgrenade", "Throws the last thrown he grenade")]
+        [ConsoleCommand("css_rethrowgrenade", "Throws the last thrown he grenade")]
+        [ConsoleCommand("css_thrownade", "Throws the last thrown he grenade")]
+        [ConsoleCommand("css_rethrownade", "Throws the last thrown he grenade")]
+        public void OnRethrowGrenadeCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null) return;
+            RethrowSpecificNade(player, "hegrenade");
+        }
+
+        [ConsoleCommand("css_throwmolotov", "Throws the last thrown molotov")]
+        [ConsoleCommand("css_rethrowmolotov", "Throws the last thrown molotov")]
+        public void OnRethrowMolotovCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null) return;
+            RethrowSpecificNade(player, "molotov");
+        }
+
+        [ConsoleCommand("css_throwdecoy", "Throws the last thrown decoy")]
+        [ConsoleCommand("css_rethrowdecoy", "Throws the last thrown decoy")]
+        public void OnRethrowDecoyCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (player == null) return;
+            RethrowSpecificNade(player, "decoy");
+        }
+
+        [ConsoleCommand("css_last", "Teleports to the last thrown grenade position")]
+        public void OnLastCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || player == null || !player.UserId.HasValue) return;
+            int userId = player.UserId.Value;
+            if (!lastGrenadesData.ContainsKey(userId) || lastGrenadesData[userId].Count <= 0)
+            {
+                // PrintToPlayerChat(player, $"You have not thrown any nade yet!");
+                PrintToPlayerChat(player, Localizer["matchzy.pm.notthrownnade"]);
+                return;
+            }
+            lastGrenadesData[userId].Last().LoadPosition(player);
+        }
+
+        [ConsoleCommand("css_back", "Teleports to the provided position in grenade thrown history")]
+        public void OnBackCommand(CCSPlayerController? player, CommandInfo command)
+        {
+            if (!isPractice || player == null || !player.UserId.HasValue) return;
+            if (command.ArgCount >= 2) 
+            {
+                string commandArg = command.ArgByIndex(1);
+                HandleBackCommand(player, commandArg);
+            }
+            else 
+            {
+                int userId = player!.UserId!.Value;
+                int thrownCount = lastGrenadesData.ContainsKey(userId) ? lastGrenadesData[userId].Count : 0;
+                // ReplyToUserCommand(player, $"Usage: !back <number> (You've thrown {thrownCount} grenades till now)");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.backtonumber", thrownCount]);
+            }      
+        }
+
+        [ConsoleCommand("css_throwidx", "Throws grenade of provided position in grenade thrown history")]
+        [ConsoleCommand("css_throwindex", "Throws grenade of provided position in grenade thrown history")]
+        public void OnThrowIndexCommand(CCSPlayerController? player, CommandInfo command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            if (command.ArgCount >= 2) 
+            {
+                HandleThrowIndexCommand(player!, command.ArgString);
+            }
+            else 
+            {
+                int userId = player!.UserId!.Value;
+                int thrownCount = lastGrenadesData.ContainsKey(userId) ? lastGrenadesData[userId].Count : 0;
+                // ReplyToUserCommand(player, $"Usage: !throwindex <number> (You've thrown {thrownCount} grenades till now)");
+                ReplyToUserCommand(player, Localizer["matchzy.pm.throwindextonumber", thrownCount]);
+            }      
+        }
+
+        [ConsoleCommand("css_lastindex", "Returns index of the last thrown grenade")]
+        public void OnLastIndexCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            if (IsValidPositionForLastGrenade(player!, 1))
+            {
+                // PrintToPlayerChat(player!, $"Index of last thrown grenade: {lastGrenadesData[player!.UserId!.Value].Count}");
+                PrintToPlayerChat(player, Localizer["matchzy.pm.indexlastgrenade", $"{lastGrenadesData[player!.UserId!.Value].Count}"]);
+            } 
+        }
+
+        [ConsoleCommand("css_delay", "Adds a delay to the last thrown grenade. Usage: !delay <delay_in_seconds>")]
+        public void OnDelayCommand(CCSPlayerController? player, CommandInfo command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            if (command.ArgCount >= 2) 
+            {
+                HandleDelayCommand(player!, command.ArgByIndex(1));
+            }
+            else 
+            {
+                // ReplyToUserCommand(player, $"Usage: !delay <delay_in_seconds>");
+                ReplyToUserCommand(player, Localizer["matchzy.cc.usage", $"!delay <delay_in_seconds>"]);
+            }      
+        }
+
+        [ConsoleCommand("css_timer", "Starts a timer, use .timer again to stop it.")]
+        public void OnTimerCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            int userId = player!.UserId!.Value;
+            if (playerTimers.ContainsKey(userId))
+            {
+                playerTimers[userId].KillTimer();
+                double timerResult = playerTimers[userId].GetTimerResult();
+                player.PrintToCenter($"Timer: {timerResult}s");
+                PrintToPlayerChat(player, $"Timer stopped! Result: {timerResult}s");
+                playerTimers.Remove(userId);
+            }
+            else
+            {
+                playerTimers[userId] = new PlayerPracticeTimer(PracticeTimerType.Immediate)
+                {
+                    StartTime = DateTime.Now,
+                    Timer = AddTimer(0.1f, () => DisplayPracticeTimerCenter(userId), TimerFlags.REPEAT)
+                };
+                PrintToPlayerChat(player, $"Timer started! User !timer to stop it.");
+            }
+        }
+
+        [ConsoleCommand("css_savenade", "Saves current nade position")]
+        public void OnSaveNadeCommand(CCSPlayerController? player, CommandInfo command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+
+            HandleSaveNadeCommand(player, command.ArgString);
+        }
+
+        [ConsoleCommand("css_loadnade", "Saves current nade position")]
+        public void OnLoadNadeCommand(CCSPlayerController? player, CommandInfo command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+
+            HandleLoadNadeCommand(player, command.ArgString);
+        }
+
+        [ConsoleCommand("css_solid", "Toggles mp_solid_teammates in practice mode")]
+        public void OnSolidCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+
+            int solidValue = ConVar.Find("mp_solid_teammates")!.GetPrimitiveValue<int>();
+
+            int newSolidValue = (solidValue == 0 || solidValue == 1) ? 2 : 1;
+
+            ConVar.Find("mp_solid_teammates")!.SetValue(newSolidValue);
+
+            PrintToAllChat($"mp_solid_teammates is now set to {newSolidValue}");
+        }
+
+        [ConsoleCommand("css_impacts", "Toggles sv_showimpacts in practice mode")]
+        public void OnImpactsCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+
+            int impactValue = ConVar.Find("sv_showimpacts")!.GetPrimitiveValue<int>();
+
+            int newImpactValue = 1 - impactValue;
+
+            Server.ExecuteCommand($"sv_showimpacts {newImpactValue}");
+
+            PrintToAllChat($"sv_showimpacts is now set to {newImpactValue}");
+        }
+
+        [ConsoleCommand("css_traj", "Toggles sv_grenade_trajectory_prac_pipreview in practice mode")]
+        [ConsoleCommand("css_pip", "Toggles sv_grenade_trajectory_prac_pipreview in practice mode")]
+        public void OnTrajCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+
+            bool trajValue = ConVar.Find("sv_grenade_trajectory_prac_pipreview")!.GetPrimitiveValue<bool>();
+
+            Server.ExecuteCommand($"sv_grenade_trajectory_prac_pipreview {!trajValue}");
+
+            PrintToAllChat($"sv_grenade_trajectory_prac_pipreview is now set to {!trajValue}");
+        }
+
+        [ConsoleCommand("css_bestspawn", "Teleports you to your team's closest spawn from your current position")]
+        public void OnBestSpawnCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            TeleportPlayerToBestSpawn(player!, player!.TeamNum);
+        }
+
+        [ConsoleCommand("css_worstspawn", "Teleports you to your team's furthest spawn from your current position")]
+        public void OnWorstSpawnCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            TeleportPlayerToWorstSpawn(player!, player!.TeamNum);
+        }
+
+        [ConsoleCommand("css_bestctspawn", "Teleports you to CT team's closest spawn from your current position")]
+        public void OnBestCTSpawnCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            TeleportPlayerToBestSpawn(player!, (byte)CsTeam.CounterTerrorist);
+        }
+
+        [ConsoleCommand("css_worstctspawn", "Teleports you to CT team's furthest spawn from your current position")]
+        public void OnWorstCTSpawnCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            TeleportPlayerToWorstSpawn(player!, (byte)CsTeam.CounterTerrorist);
+        }
+
+        [ConsoleCommand("css_besttspawn", "Teleports you to T team's closest spawn from your current position")]
+        public void OnBestTSpawnCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            TeleportPlayerToBestSpawn(player!, (byte)CsTeam.Terrorist);
+        }
+
+        [ConsoleCommand("css_worsttspawn", "Teleports you to T team's furthest spawn from your current position")]
+        public void OnWorstTSpawnCommand(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (!isPractice || !IsPlayerValid(player)) return;
+            TeleportPlayerToWorstSpawn(player!, (byte)CsTeam.Terrorist);
+        }
+
+        public void TeleportPlayerToBestSpawn(CCSPlayerController player, byte teamNum)
+        {
+            if (!spawnsData.TryGetValue(teamNum, out List<Position>? teamSpawns)) return;
+            Vector playerPosition = player!.PlayerPawn!.Value!.CBodyComponent!.SceneNode!.AbsOrigin;
+            int closestIndex = -1;
+            double minDistance = double.MaxValue;
+            for (int index = 0; index < teamSpawns.Count; index++)
+            {
+                Vector spawnPosition = teamSpawns[index].PlayerPosition;
+                Vector diff = playerPosition - spawnPosition;
+                float distance = diff.Length();
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestIndex = index;
+                }
+            }
+            player!.PlayerPawn.Value!.Teleport(teamSpawns[closestIndex].PlayerPosition, teamSpawns[closestIndex].PlayerAngle, new Vector(0, 0, 0));
+        }
+
+        public void TeleportPlayerToWorstSpawn(CCSPlayerController player, byte teamNum)
+        {
+            if (!spawnsData.TryGetValue(teamNum, out List<Position>? teamSpawns)) return;
+            Vector playerPosition = player!.PlayerPawn!.Value!.CBodyComponent!.SceneNode!.AbsOrigin;
+            int farthestIndex = -1;
+            double maxDistance = double.MinValue;
+            for (int index = 0; index < teamSpawns.Count; index++)
+            {
+                Vector spawnPosition = teamSpawns[index].PlayerPosition;
+                Vector diff = playerPosition - spawnPosition;
+                float distance = diff.Length();
+                if (distance > maxDistance)
+                {
+                    maxDistance = distance;
+                    farthestIndex = index;
+                }
+            }
+            player!.PlayerPawn.Value!.Teleport(teamSpawns[farthestIndex].PlayerPosition, teamSpawns[farthestIndex].PlayerAngle, new Vector(0, 0, 0));
+        }
+
+        // Todo: Implement timer2 when we have OnPlayerRunCmd in CS#. Using OnTick would be its alternative, but it would be very expensive and not worth it.
+        // [ConsoleCommand("css_timer2", "Starts a timer, use .timer2 again to stop it.")]
+        // public void OnTimer2Command(CCSPlayerController? player, CommandInfo command)
+        // {
+        //     if (!isPractice || !IsPlayerValid(player)) return;
+        //     int userId = player!.UserId!.Value;
+        //     if (playerTimers.ContainsKey(userId))
+        //     {
+        //         PrintToPlayerChat(player, $"Timer stopped! Result: {playerTimers[userId].GetTimerResult()}s");
+        //         playerTimers[userId].KillTimer();
+        //         playerTimers.Remove(userId);
+        //     }
+        //     else
+        //     {
+        //         playerTimers[userId] = new PlayerPracticeTimer(PracticeTimerType.OnMovement);
+        //         PrintToPlayerChat(player, $"When you start moving a timer will run until you stop moving.");
+        //     }
+        // }
     }
 }
