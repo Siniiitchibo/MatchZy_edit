@@ -107,6 +107,16 @@ public partial class MatchZy
             if (!player!.UserId.HasValue) return HookResult.Continue;
             int userId = player.UserId.Value;
 
+            if (player!.IsHLTV || player.IsBot)
+            {
+                Log($"[Player Disconected] BOT DISCONECTED!");
+            }
+            else
+            {
+                Log($"[Player Disconected] PLAYER DISCONECTED!");
+                AddTimer(5, CheckRealPlayerCount);
+            }
+
             if (playerReadyStatus.ContainsKey(userId))
             {
                 playerReadyStatus.Remove(userId);

@@ -173,6 +173,29 @@ namespace MatchZy
                 VirtualFunctions.ClientPrintAll(destination, $" {message}", 0, 0, 0, 0);
         }
 
+        public void RestoreServerConfig()
+        {
+            if (isMatchLive || isPractice || isWarmup || isKnifeRound)
+            {
+                if (GetRealPlayersCount() == 0)
+                {
+                    var currentMapName = Server.MapName;
+                    Server.ExecuteCommand($"changelevel {currentMapName}");
+                    ResetChangedConvars();
+                    ResetMatch();
+                }
+            }
+        }
+
+        public void CheckRealPlayerCount()
+        {
+            if (GetRealPlayersCount() == 0)
+            {
+                Log($"[Server EMPTY] Server is empty, map will be reloaded!");
+                RestoreServerConfig();
+            }
+        }
+
         private void SendPausedStateMessage() {
             if (isPaused && matchStarted) {
                 var pauseTeamName = unpauseData["pauseTeam"];

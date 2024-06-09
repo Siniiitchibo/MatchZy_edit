@@ -4,6 +4,8 @@ using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Timers;
+using CounterStrikeSharp.API.Modules.Entities;
+using Microsoft.Extensions.Logging;
 
 
 namespace MatchZy
@@ -13,7 +15,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy (edit by Siniii)";
-        public override string ModuleVersion => "0.7.11 (0.0.1)";
+        public override string ModuleVersion => "0.7.11 (0.0.2)";
 
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
 
@@ -208,9 +210,9 @@ namespace MatchZy
             RegisterEventHandler<EventRoundStart>(EventRoundStartHandler);
             RegisterEventHandler<EventPlayerDeath>(EventPlayerDeathPreHandler, hookMode: HookMode.Pre);
             RegisterEventHandler<EventRoundFreezeEnd>(EventRoundFreezeEndHandler);
-            RegisterListener<Listeners.OnClientDisconnectPost>(playerSlot => { 
-               // May not be required, but just to be on safe side so that player data is properly updated in dictionaries
-               // Update: Commenting the below function as it was being called multiple times on map change.
+            RegisterListener<Listeners.OnClientDisconnectPost>(playerSlot => {
+                // May not be required, but just to be on safe side so that player data is properly updated in dictionaries
+                // Update: Commenting the below function as it was being called multiple times on map change.
                 // UpdatePlayersMap();
             });
             RegisterListener<Listeners.OnEntitySpawned>(OnEntitySpawnedHandler);
