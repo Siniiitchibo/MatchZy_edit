@@ -11,5 +11,5 @@ Main changes:
 - Prac mod no need Admin privilege.
 - added and customized a lot of timers, messages and hint messages. (still in progress)
 - 10sec. delay before start Knife/Live match. (still in progress)
-- reload current map after server is empty and than go to Hibernate. (still in progress)
+- reload current map and reset server after server is empty. 
 - Vote and change map after match end (still in progress)
