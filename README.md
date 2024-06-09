@@ -13,4 +13,4 @@ Main changes:
 - reload current map and reset server settings after server is empty. 
 - added and customized a lot of timers and messages. (still in progress)
 - 10sec. delay before start Knife/Live match. (still in progress)
-- Vote and change map after match end (still in progress)
+- Vote and change map after match end. (still in progress)
