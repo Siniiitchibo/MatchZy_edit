@@ -62,8 +62,9 @@ namespace MatchZy
                         // player.PrintToChat($"{chatPrefix} {Localizer["matchzy.youareready"]}");
                         PrintToPlayerChat(player, Localizer["matchzy.ready.markedready"]);
                     }
-                    CheckLiveRequired();
+                    AddTimer(afterReadyDelay, CheckLiveRequired);
                     HandleClanTags();
+                    UnreadyHintMessageStart();
                 }
             }
         }
@@ -85,6 +86,7 @@ namespace MatchZy
                         PrintToPlayerChat(player, Localizer["matchzy.ready.markedunready"]);
                     }
                     HandleClanTags();
+                    UnreadyHintMessageStart();
                 }
             }
         }

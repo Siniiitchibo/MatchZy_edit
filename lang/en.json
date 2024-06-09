@@ -125,6 +125,10 @@
   "matchzy.utility.tacticaltimeout": "You cannot use this command when tactical timeout is active.",
   "matchzy.utility.dontpermission": "You do not have permission to use this command!",
   "matchzy.utility.allready": "All players are ready!",
+  "matchzy.utility.roundknife": "{green}KNIFE ROUND!{default}",
+  "matchzy.utility.matchlive": "{green}LIVE!{default}",
+  "matchzy.utility.knifestart": "{green}Knife round will start in 10sec!{default}",
+  "matchzy.utility.matchstart": "{green}The match will start in 10sec.{default}",
 
   "matchzy.pracc.smoke": "Smoke thrown by {red}{0}{default} took {green}{1}{default}s to detonate",
   "matchzy.pracc.flash": "Flash thrown by {red}{0}{default} took {green}{1}{default}s to detonate",
