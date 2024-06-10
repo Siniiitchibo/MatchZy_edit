@@ -14,4 +14,3 @@ Main changes:
 - Server Hibernate when empty. (20sec. delay)
 - 10sec. delay before start Knife/Live match.
 - .load command for fast loading match config file (.../csgo/match.json)
-- added and customized a lot of timers and messages. (still in progress)
