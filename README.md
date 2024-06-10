@@ -11,6 +11,7 @@ Main changes:
 - Prac mod no need Admin privilege.
 - Showing no-ready players in hint message.
 - reload current map and reset server settings after server is empty.
+- Server Hibernate when empty.
 - 10sec. delay before start Knife/Live match.
+- .load command for fast loading match config file (.../csgo/match.json)
 - added and customized a lot of timers and messages. (still in progress)
-- Vote and change map after match end. (still in progress)
