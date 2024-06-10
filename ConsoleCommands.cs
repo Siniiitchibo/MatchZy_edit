@@ -3,6 +3,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace MatchZy
@@ -44,7 +45,50 @@ namespace MatchZy
                 SendPlayerNotAdminMessage(player);
             }
         }
-        
+
+        [ConsoleCommand("css_load", "Load match settings")]
+        public void CommandLoad(CCSPlayerController? player, CommandInfo? command)
+        {
+            if (IsPlayerAdmin(player, "css_load", "@css/config"))
+            {
+                string fileName = "match.json";
+                string filePath = Path.Join(Server.GameDirectory + "/csgo", fileName);
+
+                if (isMatchLive || isKnifeRound)
+                {
+                    player.PrintToChat($" {ChatColors.Green}PoËas spustenÈho z·pasu nie je moûnÈ naËÌtaù config. NapÌö {ChatColors.Default}.restart{ChatColors.Green} pre ukonËenie z·pasu.");
+                    return;
+                }
+                else if (isMatchSetup)
+                {
+                    player.PrintToChat($" {ChatColors.Green}Z·pas uû je nastaven˝!");
+                    return;
+                }
+                if (isWarmup || isPractice)
+                {
+                    if (File.Exists(filePath))
+                    {
+                        try
+                        {
+                            Server.ExecuteCommand($"matchzy_loadmatch match.json");
+                        }
+                        catch (Exception e)
+                        {
+                            Log($"[LoadAdmins FATAL] An error occurred: {e.Message}");
+                        }
+                    }
+                    else
+                    {
+                        player.PrintToChat($" {ChatColors.Green}S˙bor {ChatColors.Default}match.json{ChatColors.Green} nebol n·jden˝!");
+                    }
+                }
+            }
+            else
+            {
+                SendPlayerNotAdminMessage(player);
+            }
+        }
+
         [ConsoleCommand("css_ready", "Marks the player ready")]
         public void OnPlayerReady(CCSPlayerController? player, CommandInfo? command) {
             if (player == null) return;

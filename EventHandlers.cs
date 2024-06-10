@@ -83,6 +83,7 @@ public partial class MatchZy
                 if (GetRealPlayersCount() == 1)
                 {
                     Log($"[FULL CONNECT] First player has connected, starting warmup!");
+                    Server.ExecuteCommand($"sv_hibernate_when_empty 0");
                     ExecUnpracCommands();
                     AutoStart();
                 }
@@ -114,7 +115,7 @@ public partial class MatchZy
             else
             {
                 Log($"[Player Disconected] PLAYER DISCONECTED!");
-                AddTimer(5, CheckRealPlayerCount);
+                AddTimer(10, CheckRealPlayerCount);
             }
 
             if (playerReadyStatus.ContainsKey(userId))

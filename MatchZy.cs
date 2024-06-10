@@ -6,6 +6,7 @@ using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Entities;
 using Microsoft.Extensions.Logging;
+using System.Numerics;
 
 
 namespace MatchZy
@@ -15,7 +16,7 @@ namespace MatchZy
     {
 
         public override string ModuleName => "MatchZy (edit by Siniii)";
-        public override string ModuleVersion => "0.7.11 (0.0.3)";
+        public override string ModuleVersion => "0.7.11 (0.0.4)";
 
         public override string ModuleAuthor => "WD- (https://github.com/shobhit-pathak/)";
 
@@ -113,6 +114,7 @@ namespace MatchZy
             }
 
             commandActions = new Dictionary<string, Action<CCSPlayerController?, CommandInfo?>> {
+                { ".load", CommandLoad }, // Loading match config file ./csgo/match.json
                 { ".ready", OnPlayerReady },
                 { ".r", OnPlayerReady },
                 { ".rdy", OnPlayerReady },
@@ -314,7 +316,8 @@ namespace MatchZy
             //     return HookResult.Continue;
             // });
 
-            RegisterListener<Listeners.OnMapStart>(mapName => { 
+            RegisterListener<Listeners.OnMapStart>(mapName => {
+                AddTimer(20, GoToHibernate);
                 AddTimer(1.0f, () => {
                     if (!isMatchSetup)
                     {
