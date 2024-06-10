@@ -10,8 +10,8 @@ Main changes:
 - Translation to Slovak language + small changes in EN.
 - Prac mod no need Admin privilege.
 - Showing no-ready players in hint message.
-- reload current map and reset server settings after server is empty.
-- Server Hibernate when empty.
+- reload current map and reset server settings after server is empty. (10sec. delay)
+- Server Hibernate when empty. (20sec. delay)
 - 10sec. delay before start Knife/Live match.
 - .load command for fast loading match config file (.../csgo/match.json)
 - added and customized a lot of timers and messages. (still in progress)
